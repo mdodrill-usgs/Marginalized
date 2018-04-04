@@ -10,10 +10,10 @@
 #  * 
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 library(R2jags)
-# library(rjags)
 
-source("RBT_Functions.R", chdir = F)
+source('RBT_Functions.R', chdir = F)
 
 # format data for model fitting
 indCH = CH
@@ -30,9 +30,7 @@ indf <- apply(CH, 1, get.first)
 z = known.state.cjs(CH)
 
 #-----------------------------------------------------------------------------#
-# OpenBUGS-Discrete
-
-sink("rbt_JAGS_D_Constant.jags")
+sink("JAGS_Discrete_Constant.jags")
 cat("
 model {
   
@@ -72,12 +70,12 @@ JD.par <- c('s', 'p')
 #                             p = runif((n.occasions - 1), 0, 1),
 #                             z = cjs.init.z(CH, indf))}
 
-ni <- 1000
+ni <- 200
 nt <- 1
-nb <- 500
+nb <- 100
 
 # t1 <- proc.time()
-JD.out <- jags(JD.data, inits = NULL, JD.par, "rbt_JAGS_D_Constant.jags",
+JD.out <- jags(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Constant.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 # t2 <- proc.time()
 
@@ -86,7 +84,7 @@ print(JD.out, digits = 3)
 #-----------------------------------------------------------------------------#
 library(coda)
 
-samps <- coda.samples(JD.)
+samps <- coda.samples(JD.out)
 
 #-----------------------------------------------------------------------------#
 ###############################################################################
@@ -133,12 +131,7 @@ out <- foreach(j = seeds) %:%
     
     my.env = environment()
     
-    # JM.re.c = jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
-    #                         n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                         jags.seed = seed, envir = my.env)
-    
-    
-    JD.c <- jags.parallel(JD.data, inits = NULL, JD.par, "rbt_JAGS_D_Constant.jags",
+    JD.c <- jags.parallel(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Constant.jags",
                    n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
                    jags.seed = seed, envir = my.env) 
     
