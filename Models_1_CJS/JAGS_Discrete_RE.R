@@ -7,9 +7,10 @@
 #  * 
 #
 #  To do: 
-#  * 
+#  * test this on the server...
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 library(R2jags)
 
 source("RBT_Functions.R", chdir = F)
@@ -29,9 +30,7 @@ indf <- apply(CH, 1, get.first)
 z = known.state.cjs(CH)
 
 #-----------------------------------------------------------------------------#
-# OpenBUGS-Discrete
-
-sink("rbt_JAGS_D_RE.jags")
+sink("JAGS_Discrete_RE.jags")
 cat("
 model {
   
@@ -99,70 +98,13 @@ nt <- 1
 nb <- 5
 
 t1 <- proc.time()
-JD.re <- jags(JD.data, inits = NULL, JD.par, "rbt_JAGS_D_RE.jags",
+JD.re <- jags(JD.data, inits = NULL, JD.par, "JAGS_Discrete_RE.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 t2 <- proc.time()
 
 print(JD.re, digits = 3)
 
 # 15 mins to compile on server, wtf?
-
-#-----------------------------------------------------------------------------#
-
-#-----------------------------------------------------------------------------#
-
-all.t1 = proc.time()
-n.runs = 10
-
-# n.iter = seq(0,5000,500)[- 1]
-# n.iter = c(500, 2500, 5000)
-# n.iter = c(3000, 4500)
-
-
-big.fit.list = list()
-seeds <- sample(1:1e5, size = n.runs*length(n.iter))   # change how the seed is done, new for every run !
-
-n=1
-
-for(j in 1:n.runs){
-  
-  
-  
-  fit.list = list()
-  
-  for(i in seq_along(n.iter)){
-    ni = n.iter[i]
-    
-    seed = seeds[n]
-    n = n+1
-    
-    
-    t1 <- proc.time()
-    
-    JD.re.c <- jags.parallel(JD.data, inits = NULL, JD.par, "rbt_JAGS_D_RE.jags",
-                             n.chains = 3, n.iter = ni, export_obj_names = c("ni"),
-                             jags.seed = seed)   
-    
-    t2 <- proc.time()
-    
-    attr(JD.re.c, 'time') <- (t2 - t1)[3]
-    
-    fit.list[[i]] = JD.re.c
-    
-    message("Progress at ------- ", as.character(c(j,i)))
-  }  
-  
-  big.fit.list[[j]] = fit.list
-}
-
-all.t2 = proc.time()
-
-
-(all.t2 - all.t1)[3]/60/60
-
-all.jags.d.4 = do.call(c, big.fit.list)
-
-# rm(list=setdiff(ls(), "all.jags.d.4"))
 
 #-----------------------------------------------------------------------------#
 ###############################################################################
@@ -213,12 +155,8 @@ out <- foreach(j = seeds) %:%
     
     my.env = environment()
     
-    # JM.re.c = jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
-    #                         n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                         jags.seed = seed, envir = my.env)
-    
     # name is wrong here...fix
-    JD.re <- jags.parallel(JD.data, inits = NULL, JD.par, "rbt_JAGS_D_RE.jags",
+    JD.re <- jags.parallel(JD.data, inits = NULL, JD.par, "JAGS_Discrete_RE.jags",
                              n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
                              jags.seed = seed, envir = my.env)   
     
