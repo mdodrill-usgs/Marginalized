@@ -1,7 +1,7 @@
 
 # Capture Recapture, Occupancy, and Integrated Population Models using Marginalization
 
-(marginalized repo isn't working, so use this one for now)
+(marginalized repo isn't working :confused:, so use this one for now)
 
 ### We illistrate the advantages of marginalization using six examples:
 
