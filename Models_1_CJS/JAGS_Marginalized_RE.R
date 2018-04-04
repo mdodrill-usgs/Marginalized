@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Fed 18
+#                                                                        Feb 18
 #        Fitting a state - space version of a CJS model to the RBT data 
 #        Marginalized JAGS version - Random effects for p & s
 #
@@ -7,9 +7,10 @@
 #  * 
 #
 #  To do: 
-#  * 
+#  * Clean up parallel piece at bottom...
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 library(R2jags)
 
 source("RBT_Functions.R", chdir = F)
@@ -25,19 +26,15 @@ sumf <- apply(tmpCH, 1, get.first)
 sumCH = tmpCH
 sumCH[sumCH[,] == 0] = 2
 
-
 NsumCH = nrow(sumCH)         # number of capture histories 
 n.occasions = ncol(sumCH)    # number of sampling occasions
 
 ones <- sumFR
 
-
 pz = known.state.cjs(tmpCH)
 
 #-----------------------------------------------------------------------------#
-# BUGS-Marginalized
-
-sink("rbt_JAGS_M_RE.jags")
+sink("JAGS_Marginalized_RE.jags")
 cat("
 model {
   
@@ -110,15 +107,15 @@ nb <- 50
 
 
 # t1 <- proc.time()
-JM.re <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+JM.re <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 
 
-JM.re.b <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+JM.re.b <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                n.chains = 3, n.iter = ni)
 
 
-JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                n.chains = 3, n.iter = ni, export_obj_names = c("ni"))   
 
 
@@ -163,13 +160,13 @@ for(j in 1:n.runs){
     ni = n.iter[i]
     
     t1 <- proc.time()
-    # JM.re <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    # JM.re <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
     #               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
     
-    # JM.re.b <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    # JM.re.b <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
     #                 n.chains = 3, n.iter = ni)
     
-    JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                              n.chains = 3, n.iter = ni, export_obj_names = c("ni"),
                              jags.seed = seed)   
     
@@ -255,7 +252,7 @@ out = foreach(j = 1:n.runs) %dopar% {
 
     t1 <- proc.time()
 
-    JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                              n.chains = 3, n.iter = ni, export_obj_names = c("ni"),
                              jags.seed = seed)
 
@@ -378,17 +375,17 @@ out <- foreach(j = n.runs) %:% {
     
     # print(iter.in)
     
-    # JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    # JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
     #                          n.chains = 3, n.iter = ni, export_obj_names = c("ni"),
     #                          jags.seed = seed)
-    # jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    # jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
     #               n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in"),
     #               jags.seed = seed, envir = my.env)
-    JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    JM.re.c <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                              n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in"),
                              jags.seed = seed, envir = my.env)
     
-    # JM.re.b <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+    # JM.re.b <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
     #                 n.chains = 1, n.iter = iter.in)
 
     
@@ -461,7 +458,7 @@ out <- foreach(j = seeds) %:%
     
     my.env = environment()
 
-     JM.re.c = jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
+     JM.re.c = jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_RE.jags",
                              n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
                              jags.seed = seed, envir = my.env)
 

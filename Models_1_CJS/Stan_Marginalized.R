@@ -7,10 +7,10 @@
 #  * 
 #
 #  To do: 
-#  *  Need to update the names of the Stan files in this script
+#  *  Clean up script...
 #
 ###############################################################################
-# setwd("C:\\Users\\mdodrill\\Desktop\\Fish_Git\\marginalized")
+setwd(paste0(getwd(), '/Models_1_CJS'))
 
 library(rstan)
 # library(arm)
@@ -38,11 +38,9 @@ NsumCH = nrow(sumCH)         # number of capture histories
 n.occasions = ncol(sumCH)    # number of sampling occasions
 
 #-----------------------------------------------------------------------------#
-# Stan-M
+# working with the Stan model in a seperate tab... see "Stan_M...stan"
 
-# working with the Stan model in a seperate tab... see "rbt_Stan_M.stan"
-
-# sink("rbt_Stan_M.stan")
+# sink("Stan_M...stan")
 # cat("
 #     
 
@@ -52,7 +50,7 @@ n.occasions = ncol(sumCH)    # number of sampling occasions
 # sink()    
 
 #-----------------------------------------------------------------------------#
-
+# Constant 
 sm.params <- c("s", "p")
 
 sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
@@ -67,7 +65,7 @@ nc = 3
 
 # Call Stan from R 
 # t1 <- proc.time()
-SM.c <- stan("rbt_Stan_M_Constant.stan",
+SM.c <- stan("Stan_Marginalized_Constant.stan",
            # SM <- stan(fit = SM,
            data = sm.data,
            pars = sm.params,
@@ -96,9 +94,9 @@ nc = 3
 
 # Call Stan from R 
 # t1 <- proc.time()
-# SM.t <- stan("rbt_Stan_M.stan",
-# SM.t2 <- stan("rbt_Stan_M_V2.stan",
-SM.t3 <- stan("rbt_Stan_M.stan",
+# SM.t <- stan("Stan_Marginalized.stan",
+# SM.t2 <- stan("Stan_Marginalized.stan",
+SM.t3 <- stan("Stan_Marginalized_Time.stan",
            # SM <- stan(fit = SM,
            data = sm.data,
            pars = sm.params,
@@ -121,7 +119,7 @@ q_plot(list("none specified" = SM.t, "logit(p)~normal(0,2)" = SM.t2, "beta(.1,.1
 #-----------------------------------------------------------------------------#
 # variational inference
 
-# m = stan_model("rbt_Stan_M.stan")
+# m = stan_model("Stan_Marginalized.stan")
 # 
 # v.SM <- vb(m, data = sm.data, pars = sm.params) 
 # 
@@ -145,7 +143,7 @@ nc = 3
 
 # Call Stan from R 
 # t1 <- proc.time()
-SM.re <- stan("rbt_Stan_M_RE.stan",
+SM.re <- stan("Stan_Marginalized_RE.stan",
            # SM <- stan(fit = SM.re,
            data = sm.data,
            pars = sm.params,
@@ -246,7 +244,7 @@ out <- foreach(j = seeds) %:%
     #                         n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
     #                         jags.seed = seed, envir = my.env)
     
-    # SM.re <- stan("rbt_Stan_M_RE.stan",
+    # SM.re <- stan("Stan_Marginalized_RE.stan",
     # SM.re <- stan(fit = SM.re,     # faster to compile the model above...
     #               data = sm.data,
     #               pars = sm.params,
@@ -255,7 +253,7 @@ out <- foreach(j = seeds) %:%
     
     
     # SM.c <- stan(fit = SM.c,     # faster to compile the model above...
-    SM.c <- stan("rbt_Stan_M_Constant.stan",     
+    SM.c <- stan("Stan_Marginalized_Constant.stan",     
                  data = sm.data,
                  pars = sm.params,
                  control = list(adapt_delta = .85),
@@ -292,7 +290,7 @@ length(all.out)
 
 
 all.stan.m.constant.test = all.out
-rm(list=setdiff(ls(), c("all.stan.m.constant.test")))
+# rm(list=setdiff(ls(), c("all.stan.m.constant.test")))
 
 
 

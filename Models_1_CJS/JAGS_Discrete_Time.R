@@ -7,11 +7,11 @@
 #  * 
 #
 #  To do: 
-#  * 
+#  * Add parallel version?
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 library(R2jags)
-
 
 source("RBT_Functions.R", chdir = F)
 
@@ -27,13 +27,10 @@ n.occasions = ncol(indCH)    # number of sampling occasions
 get.first <- function(x) min(which(x != 0))
 indf <- apply(CH, 1, get.first)
 
-
 z = known.state.cjs(CH)
 
 #-----------------------------------------------------------------------------#
-# OpenBUGS-Discrete
-
-sink("rbt_JAGS_D.jags")
+sink("JAGS_Discrete_Time.jags")
 cat("
 model {
   
@@ -81,7 +78,7 @@ nt <- 1
 nb <- 5
 
 t1 <- proc.time()
-JD.out <- jags(JD.data, inits = NULL, JD.par, "rbt_JAGS_D.jags",
+JD.out <- jags(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Time.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 t2 <- proc.time()
 

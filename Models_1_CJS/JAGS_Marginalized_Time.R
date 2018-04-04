@@ -7,9 +7,10 @@
 #  * 
 #
 #  To do: 
-#  * 
+#  * Add parallel version to bottom?
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 library(R2jags)
 
 source("RBT_Functions.R", chdir = F)
@@ -25,19 +26,15 @@ sumf <- apply(tmpCH, 1, get.first)
 sumCH = tmpCH
 sumCH[sumCH[,] == 0] = 2
 
-
 NsumCH = nrow(sumCH)         # number of capture histories 
 n.occasions = ncol(sumCH)    # number of sampling occasions
 
 ones <- sumFR
 
-
 pz = known.state.cjs(tmpCH)
 
 #-----------------------------------------------------------------------------#
-# BUGS-Marginalized
-
-sink("rbt_JAGS_M.jags")
+sink("JAGS_Marginalized_Time.jags")
 cat("
 model {
   
@@ -89,7 +86,7 @@ nb <- 50
 
 
 t1 <- proc.time()
-JM.out <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M.jags",
+JM.out <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 t2 <- proc.time()
 

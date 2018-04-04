@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Fed 18
+#                                                                        Feb 18
 #        Fitting a state - space version of a CJS model to the RBT data 
 #        Marginalized maximum likelihood version
 #
@@ -9,8 +9,10 @@
 #  To do: 
 #  * Change the i and K indexing to match the other examples
 #  * Ask Charles about the CH 000000001 --> discard ? 
+#  * This needs some work
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 source("RBT_Functions.R", chdir = F)
 
 tmpCH = collapse.ch(CH)[[1]]
@@ -24,10 +26,8 @@ sumf <- apply(tmpCH, 1, get.first)
 sumCH = tmpCH
 sumCH[sumCH[,] == 0] = 2
 
-
 NsumCH = nrow(sumCH)         # number of capture histories 
 n.occasions = ncol(sumCH)    # number of sampling occasions
-
 
 #-----------------------------------------------------------------------------#
 # Maximum likelihood
@@ -73,14 +73,6 @@ m <- optim(rep(0.5, 35), rbt_nll, lower = rep(0.01, 35), upper = rep(0.99, 35),
            method = "L-BFGS", hessian = T)
 
 sqrt(diag(solve(m$hessian))) #SE
-
-
-
-
-
-
-
-
 
 
 #-----------------------------------------------------------------------------#

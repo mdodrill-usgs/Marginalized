@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Fed 18
+#                                                                        Feb 18
 #        Fitting a state - space version of a CJS model to the RBT data 
 #        Marginalized JAGS version
 #
@@ -7,9 +7,10 @@
 #  * 
 #
 #  To do: 
-#  * 
+#  * Clean up parallel piece at bottom...
 #
 ###############################################################################
+setwd(paste0(getwd(), '/Models_1_CJS'))
 library(R2jags)
 
 source("RBT_Functions.R", chdir = F)
@@ -33,9 +34,7 @@ ones <- sumFR
 pz = known.state.cjs(tmpCH)
 
 #-----------------------------------------------------------------------------#
-# BUGS-Marginalized
-
-sink("rbt_JAGS_M_Constant.jags")
+sink("JAGS_Marginalized_Constant.jags")
 cat("
 model {
   
@@ -84,10 +83,10 @@ nb <- 100
 
 
 # t1 <- proc.time()
-JM.out <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_Constant.jags",
+JM.out <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Constant.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 
-JM.out.b <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_Constant.jags",
+JM.out.b <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Constant.jags",
                n.chains = 3, n.iter = ni, export_obj_names = c("ni"))
 # t2 <- proc.time()
 
@@ -108,7 +107,7 @@ for(i in 1:5){
   ni = n.iter[i]
 
   t1 <- proc.time()
-  JM.out <- jags(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_Constant.jags",
+  JM.out <- jags(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Constant.jags",
                  n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
   t2 <- proc.time()
   
@@ -163,16 +162,7 @@ out <- foreach(j = seeds) %:%
     
     my.env = environment()
     
-    # JM.re.c = jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_RE.jags",
-    #                         n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                         jags.seed = seed, envir = my.env)
-    
-    
-    # JD.c <- jags.parallel(JD.data, inits = NULL, JD.par, "rbt_JAGS_D_Constant.jags",
-    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                       jags.seed = seed, envir = my.env) 
-    
-    JM.C <- jags.parallel(JM.data, inits = NULL, JM.par, "rbt_JAGS_M_Constant.jags",
+    JM.C <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Constant.jags",
                               n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
                           jags.seed = seed, envir = my.env) 
     
@@ -204,8 +194,7 @@ length(all.out)
 
  # all.jags.m.constant = all.out
 
-rm(list=setdiff(ls(), "all.jags.m.constant"))
-
+# rm(list=setdiff(ls(), "all.jags.m.constant"))
 
 
 
