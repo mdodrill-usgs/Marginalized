@@ -12,13 +12,13 @@
 #  * 
 #
 ###############################################################################
-setwd('C:\\Users\\mdodrill\\Desktop\\BNT_Mods')
+setwd('C:\\Users\\mdodrill\\Desktop\\Fish_Git\\marginalized_2\\Models_3_IPM')
 library(R2jags)
 
 # read in data
-NO_catch <- read.csv("NO_catch.csv", header = TRUE)
-AZGF_catch <- read.csv("AZGF_catch.csv", header = TRUE)
-MR_data <- read.csv("bCH.csv", header = FALSE)
+NO_catch <- read.csv(paste0(getwd(), "/Data/", "NO_catch.csv"), header = TRUE)
+AZGF_catch <- read.csv(paste0(getwd(), "/Data/", "AZGF_catch.csv"), header = TRUE)
+MR_data <- read.csv(paste0(getwd(), "/Data/", "bCH.csv"), header = FALSE)
 
 # extract/reformat data
 bNOc <- NO_catch[,1:3]
@@ -39,14 +39,13 @@ findfirst <- function(x){which(x != 4)[1]}
 sumf <- apply(bCH, 1, findfirst)
 
 #-----------------------------------------------------------------------------#
-sink("bnt_JM.jags")
+sink("JAGS_Marginalized.jags")
 cat("
 model {
   # lphi is the logit of survival and is given a prior based on the lorenzen
-  # function and the average mass of fish in each
-  
-  # size class during each season. variation from the priod mode is determined
-  # by an estimated variance parameter (sd.lphi)
+  # function and the average mass of fish in each size class during each season.
+  # variation from the priod mode is determined by an estimated variance
+  # parameter (sd.lphi)
   
   lphi[1,1] ~ dnorm(1.08, tau.lphi)
   lphi[1,2] ~ dnorm(1.14, tau.lphi)
@@ -232,9 +231,10 @@ BM_JM.par <- c('beta.I', 'bphi', 'bpsi1', 'bpsi2', 'mu.blp', 'sd.blp', "lbeta.0"
              "mu.I", "I", "Beta", "IN", "AZadj", "sd.I", "sd.lphi", "sd.blp",
              'sd.beta', "bN")
 
-ni <- 10000
+# ni <- 10000
+ni <- 1000
 
-BM_JM <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "bnt_JM.jags",
+BM_JM <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "JAGS_Marginalized.jags",
                        n.chains = 3, n.iter = ni, export_obj_names = c("ni"))
 
 print(BM_JM, digits = 3)

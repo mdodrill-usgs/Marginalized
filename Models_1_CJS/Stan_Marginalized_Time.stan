@@ -10,7 +10,7 @@ data{
 
 parameters{
   real<lower = 0, upper = 1> s[n_occasions - 1];   // 3 month survivals 
-  real<lower = 0, upper = 1> p[n_occasions - 1];  // capture probability
+  real<lower = 0, upper = 1> p[n_occasions - 1];   // capture probability
 }
 
 transformed parameters{
@@ -22,7 +22,6 @@ transformed parameters{
     tr[1,k,2] = (1 - s[k]);
     tr[2,k,1] = 0;
     tr[2,k,2] = 1;
-    
     
     pmat[1,k,1] = p[k];
     pmat[1,k,2] = (1 - p[k]);
