@@ -54,15 +54,13 @@ generated quantities{
 	int U[n_occasions];
 	int N[n_occasions];
 	
-	
-	// this is the p-cap for a reach i and time j
+	// this is the p-cap 
   ptrans = p; 
 	// convert p-cap to scale par for negbin
 	scale_par = ptrans / (1 - ptrans); 
 		
-		
 	for(i in 1:n_occasions){
-		// at reach i time j - note U is the 'number of failures' (i.e., fish not captured)
+		// note U is the 'number of failures' (i.e., fish not captured)
 		U[i] = neg_binomial_rng(Catch[i], scale_par); 
     // add number of failures to Catch to get N                            
 		N[i] = U[i] + Catch[i];
