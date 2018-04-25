@@ -59,12 +59,12 @@ model {
     }
   }
   
-  #------- Calculate abundance
+  #------- Calculate abundance using Negative Binomial 
   # this is the p-cap 
-  ptrans <- p
+  # ptrans <- p
   
   for(i in 1:n.occasions){
-    U[i] ~ dnegbin(ptrans, catch[i])
+    U[i] ~ dnegbin(p, catch[i])
     N[i] <- U[i] + catch[i]
   }
 }
@@ -91,7 +91,7 @@ print(JD.out, digits = 3)
 
 #-----------------------------------------------------------------------------#
 library(coda)
-
+ 
 samps <- coda.samples(JD.out)
 
 #-----------------------------------------------------------------------------#

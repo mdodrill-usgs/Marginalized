@@ -54,7 +54,7 @@ generated quantities{
 	real ptrans;	
 	real<lower = 0> scale_par;
 	int U[n_occasions];
-	int N[n_occasions];
+	int<lower = 0> N[n_occasions - 1];   //  lower bound at 0 here ?
 
 	for(i in 1:n_occasions - 1){
 	  ptrans = p[i]; 

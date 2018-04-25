@@ -53,7 +53,7 @@ generated quantities{
 	real ptrans;	
 	real<lower = 0> scale_par;
 	int U[n_occasions];
-	int N[n_occasions];
+	int<lower = 0> N[n_occasions];        //  lower bound at 0 here ?
 	
 	// this is the p-cap 
   ptrans = p; 

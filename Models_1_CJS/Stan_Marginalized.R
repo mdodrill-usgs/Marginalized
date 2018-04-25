@@ -38,7 +38,7 @@ NsumCH = nrow(sumCH)         # number of capture histories
 n.occasions = ncol(sumCH)    # number of sampling occasions
 
 # Catch (for the N versions)
-catch = colSums(tmpCH)
+catch = colSums(CH)
 
 #-----------------------------------------------------------------------------#
 # working with the Stan model in a seperate tab... see "Stan_M...stan"
@@ -82,16 +82,16 @@ SM.c <- stan("Stan_Marginalized_Constant.stan",
 SM.c
 
 #-----------------------------------------------------------------------------#
-# Constant with abuncance 
+# Constant with abundance 
 sm.params <- c("s", "p", "N")
 
 sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
                 sumf = sumf, sumFR = sumFR, Catch = catch)
 
 # MCMC settings
-ni = 100
+ni = 1000
 nt = 1
-nb = 50
+nb = 500
 nc = 3
 
 
@@ -111,6 +111,7 @@ SM.c2 <- stan("Stan_Marginalized_Constant_N.stan",
 SM.c2
 
 trace_plots(SM.c2, "N", 1:6, same.scale = TRUE)
+
 
 #-----------------------------------------------------------------------------#
 # Time (occasion) specific parms
@@ -233,10 +234,10 @@ sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
                 sumf = sumf, sumFR = sumFR, Catch = catch)
 
 # MCMC settings
-ni = 1000
+ni = 100
 nt = 1
-nb = 500
-nc = 3
+nb = 50
+nc = 1
 
 
 # Call Stan from R 
@@ -255,7 +256,7 @@ SM.re2
 
 trace_plots(SM.re2, "N", 1:6, same.scale = TRUE)
 
-
+q_plot(list("dot" = SM.c2, "time" = SM.t2, "RE" = SM.re2), par.name = "N")
 #-----------------------------------------------------------------------------#
 
 Rhat = rstan::summary(SM)$summary[,"Rhat"]
