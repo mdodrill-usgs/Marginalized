@@ -37,6 +37,9 @@ sumCH[sumCH[,] == 0] = 2
 NsumCH = nrow(sumCH)         # number of capture histories 
 n.occasions = ncol(sumCH)    # number of sampling occasions
 
+# Catch (for the N versions)
+catch = colSums(tmpCH)
+
 #-----------------------------------------------------------------------------#
 # working with the Stan model in a seperate tab... see "Stan_M...stan"
 
@@ -77,6 +80,37 @@ SM.c <- stan("Stan_Marginalized_Constant.stan",
 # t2 <- proc.time()
 
 SM.c
+
+#-----------------------------------------------------------------------------#
+# Constant with abuncance 
+sm.params <- c("s", "p", "N")
+
+sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
+                sumf = sumf, sumFR = sumFR, Catch = catch)
+
+# MCMC settings
+ni = 100
+nt = 1
+nb = 50
+nc = 3
+
+
+# Call Stan from R 
+# t1 <- proc.time()
+SM.c2 <- stan("Stan_Marginalized_Constant_N.stan",
+           # SM <- stan(fit = SM,
+           data = sm.data,
+           pars = sm.params,
+           control = list(adapt_delta = .85),
+           # control = list(max_treedepth = 14),
+           # control = list(max_treedepth = 15, adapt_delta = .925),
+           # chains = nc, iter = ni, warmup = nb, thin = nt, seed = 1) 
+           chains = nc, iter = ni, thin = nt, seed = 1) 
+# t2 <- proc.time()
+
+SM.c2
+
+trace_plots(SM.c2, "N", 1:6, same.scale = TRUE)
 
 #-----------------------------------------------------------------------------#
 
