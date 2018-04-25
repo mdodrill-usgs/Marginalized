@@ -113,7 +113,7 @@ SM.c2
 trace_plots(SM.c2, "N", 1:6, same.scale = TRUE)
 
 #-----------------------------------------------------------------------------#
-
+# Time (occasion) specific parms
 sm.params <- c("s", "p")
 
 sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
@@ -151,6 +151,37 @@ q_plot(list("none specified" = SM.t, "logit(p)~normal(0,2)" = SM.t2, "beta(.1,.1
 
 
 #-----------------------------------------------------------------------------#
+# Time (occasion) specific parms with abundance
+sm.params <- c("s", "p", "N")
+
+sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
+                sumf = sumf, sumFR = sumFR, Catch = catch)
+
+# MCMC settings
+ni = 1000
+nt = 1
+nb = 500
+nc = 3
+
+
+# Call Stan from R 
+# t1 <- proc.time()
+SM.t2 <- stan("Stan_Marginalized_Time_N.stan",
+           # SM <- stan(fit = SM,
+           data = sm.data,
+           pars = sm.params,
+           control = list(adapt_delta = .85),
+           # control = list(max_treedepth = 14),
+           # control = list(max_treedepth = 15, adapt_delta = .925),
+           # chains = nc, iter = ni, warmup = nb, thin = nt, seed = 1) 
+           chains = nc, iter = ni, thin = nt) 
+# t2 <- proc.time()
+
+SM.t2
+trace_plots(SM.t2, "N", 1:6, same.scale = TRUE)
+trace_plots(SM.t2, "N", 7:13)
+
+#-----------------------------------------------------------------------------#
 # variational inference
 
 # m = stan_model("Stan_Marginalized.stan")
@@ -161,7 +192,7 @@ q_plot(list("none specified" = SM.t, "logit(p)~normal(0,2)" = SM.t2, "beta(.1,.1
 # q_plot(mod.list, par.name = "p")
 
 #-----------------------------------------------------------------------------#
-
+# p & s as random effects
 # sm.params <- c("s", "p", "mu_s", "sig_s", "mu_p", "sig_p")
 sm.params <- c("s", "p", "mean_s", "mean_p")
 
@@ -191,6 +222,38 @@ SM.re
 
 
 q_plot(list("RE" = SM.re, "constant" = SM.c), par.name = "s")
+
+
+#-----------------------------------------------------------------------------#
+# p & s as random effects, with abundance
+# sm.params <- c("s", "p", "mu_s", "sig_s", "mu_p", "sig_p")
+sm.params <- c("s", "p", "mean_s", "mean_p", "N")
+
+sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
+                sumf = sumf, sumFR = sumFR, Catch = catch)
+
+# MCMC settings
+ni = 1000
+nt = 1
+nb = 500
+nc = 3
+
+
+# Call Stan from R 
+# t1 <- proc.time()
+SM.re2 <- stan("Stan_Marginalized_RE_N.stan",
+           # SM <- stan(fit = SM.re,
+           data = sm.data,
+           pars = sm.params,
+           control = list(adapt_delta = .85),
+           # control = list(max_treedepth = 14),
+           # control = list(max_treedepth = 15, adapt_delta = .925),
+           chains = nc, iter = ni, warmup = nb, thin = nt, seed = 1) 
+# t2 <- proc.time()
+
+SM.re2
+
+trace_plots(SM.re2, "N", 1:6, same.scale = TRUE)
 
 
 #-----------------------------------------------------------------------------#

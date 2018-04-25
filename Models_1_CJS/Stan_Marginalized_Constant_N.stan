@@ -1,4 +1,5 @@
 // CJS Model with constant survival (s) and capture probability (p)
+// Abundance is computed with a Negative Binomial distribution in the generated quantities block
     
 data{
   int<lower = 1> NsumCH;
