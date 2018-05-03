@@ -12,7 +12,11 @@
 #  * 
 #
 ###############################################################################
-setwd('C:\\Users\\mdodrill\\Desktop\\Fish_Git\\marginalized_2\\Models_3_IPM')
+
+
+print(BM_JM, digits = 3)
+
+#-----------------------------------------------------------------------------#setwd('C:\\Users\\mdodrill\\Desktop\\Fish_Git\\marginalized_2\\Models_3_IPM')
 library(R2jags)
 
 # read in data
@@ -108,7 +112,7 @@ model {
   
   for(j in 1:23){
     #this loop calculates actual per pass pcaps for each trip and modifies based on # of passes
-    spawn[j] <- 3 + step(-1 * seasNO[j] + 1.1)
+    spawn[j] <- 3 + step(-1 * seasNO[j] + 1.1)  # change here to use 'spawn' input
     blp_pass[j,1] ~ dnorm(mu.blp[1], tau.blp)
     blp_pass[j,2] ~ dnorm(mu.blp[2], tau.blp)
     blp_pass[j,3] ~ dnorm(mu.blp[spawn[j]], tau.blp)
@@ -192,20 +196,20 @@ model {
     # BNT eggs produced in winter as a function weighted sum of adults (wA) and reprodutive rate (Beta)
     wA[j] <- (bN[((j - 1) * 4 + 2),2] + 4 * bN[((j - 1) * 4 + 2),3])
     beta.eps[j] ~ dnorm(0, tau.beta)
-    Beta[j] <- exp(lbeta.0 + beta.eps[j])
+    Beta[j] <- exp(lbeta.0 + beta.eps[j]) 
     
     # between summer and fall all bnt graduate to sz 2 & recruits show up
     bN[(1 + j * 4),1] <- wA[j] * Beta[j]
     bN[(1 + j * 4),2] <- btrans[1,2,4] * bN[(j * 4),1] + btrans[2,2,4] * bN[(j * 4),2]
     bN[(1 + j * 4),3] <- btrans[2,3,4] * bN[(j * 4),2] + btrans[3,3,4] * bN[(j * 4),3] + exp(I[(j * 4)])
   }
-  
+
   # 2000 - 2017 AZGF data
   for(j in 1:NAZsamps){
     for(k in 1:3){
       blpAZ[j,k] ~ dnorm(mu.AZ[k], tau.blp)
       logit(bpAZ[j,k]) <- blpAZ[j,k]
-      blamAZ[j,k] <- bpAZ[j,k] * bN[ts[j],k] * AZeff[j] / 35
+      blamAZ[j,k] <- bpAZ[j,k] * bN[ts[j],k] * AZeff[j] / 35 # predicted catch AZ (35 is ~h to do LF, by AZ)
       bAZ[j,k] ~ dpois(blamAZ[j,k])
     }
   }
@@ -236,7 +240,3 @@ ni <- 1000
 
 BM_JM <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "JAGS_Marginalized.jags",
                        n.chains = 3, n.iter = ni, export_obj_names = c("ni"))
-
-print(BM_JM, digits = 3)
-
-#-----------------------------------------------------------------------------#

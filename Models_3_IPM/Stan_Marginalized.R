@@ -25,11 +25,11 @@ AZGF_catch <- read.csv(paste0(getwd(), "/Data/", "AZGF_catch.csv"), header = TRU
 MR_data <- read.csv(paste0(getwd(), "/Data/", "bCH.csv"), header = FALSE)
 
 # extract/reformat data
-bNOc <- NO_catch[,1:3]
+bNOc <- as.matrix(NO_catch[,1:3])
 NOpasses <- NO_catch$NOpasses
 seasNO <- NO_catch$seasNO
 spawn <- ifelse(seasNO == 1, 4, 3)
-bAZ <- AZGF_catch[,1:3]
+bAZ <- as.matrix(AZGF_catch[,1:3])
 ts <- AZGF_catch$ts
 AZeff <- AZGF_catch$AZeff
 NAZsamps <- length(AZeff)
@@ -37,7 +37,7 @@ NAZsamps <- length(AZeff)
 findlast <- function(x){ifelse(x[24] == 1, 23, max(which(x[1:23] != 4)))}
 last <- apply(MR_data, 1, findlast)
 
-bCH <- MR_data[,1:23]
+bCH <- as.matrix(MR_data[,1:23])
 NCH <- length(last)
 FR <- rep(1, NCH)
 findfirst <- function(x){which(x != 4)[1]}
@@ -75,17 +75,17 @@ sm.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
 sm.params = c('blp_pass')
 
 # MCMC settings
-ni = 100
+ni = 1000
 nt = 1
-nb = 50
-nc = 3
+nb = 500
+nc = 1
 
 
 # Call Stan from R 
 SM.c <- stan("Stan_Marginalized.stan",
              data = sm.data,
              pars = sm.params,
-             # control = list(max_treedepth = 15, adapt_delta = .925),
+             control = list(max_treedepth = 14, adapt_delta = .925),
              chains = nc, iter = ni, thin = nt, seed = 1) 
 
 SM.c

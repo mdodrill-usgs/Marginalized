@@ -4,7 +4,8 @@ data{
  int NAZsamps;                            // Add bounds to everything?
  int ts[NAZsamps];
  vector [NAZsamps] AZeff;
- matrix[NAZsamps, 3] bAZ;
+ // matrix[NAZsamps, 3] bAZ;              // does not work with Poisson, b/c not an integer
+ int bAZ[NAZsamps, 3];
  int seasNO[23];
  matrix[23, 3] bNOc;
  int NOpasses[23];
@@ -32,7 +33,7 @@ parameters{
   
   vector[3] AZadj;
   
-  vector[3] IN;
+  vector[2] IN;
   
   real<lower = 0> sd_beta;
   vector[17] beta_eps;
@@ -57,7 +58,7 @@ transformed parameters{
   
   vector[3] mu_AZ;
   
-  matrix[1,3] bN;
+  matrix[69,3] bN;                                                             // check these dims
   
   vector[17] wA;
   
@@ -124,9 +125,10 @@ for(j in 1:3){
   mu_AZ[2] = mu_blp[2] + AZadj[2];
   mu_AZ[3] = mu_blp[3] + AZadj[3];
   
-  bN[1,1] = IN[1];                               // change to set to 0 here, then remove IN[1] in model block
-  bN[1,2] = IN[2];
-  bN[1,3] = IN[3];
+  // bN[1,1] = IN[1];                               // change to set to 0 here, then remove IN[1] in model block
+  bN[1,1] = 1;                                      // will bomb (line 270-271), if 0,  blamAZ get set to 0!
+  bN[1,2] = IN[1];
+  bN[1,3] = IN[2];
   
   //calculate latent abundance of brown trout from fall 2000 to end of 2017
   for(j in 1:17){
@@ -141,7 +143,7 @@ for(j in 1:3){
     
     Beta[j] = exp(lbeta_0 + beta_eps[j]);
     
-    # between summer and fall all bnt graduate to sz 2 & recruits show up
+    // between summer and fall all bnt graduate to sz 2 & recruits show up
     bN[(1 + j * 4),1] = wA[j] * Beta[j];
     bN[(1 + j * 4),2] = btrans[1,2,4] * bN[(j * 4),1] + btrans[2,2,4] * bN[(j * 4),2];
     bN[(1 + j * 4),3] = btrans[2,3,4] * bN[(j * 4),2] + btrans[3,3,4] * bN[(j * 4),3] + exp(I[(j * 4)]);
@@ -229,9 +231,9 @@ model{
   AZadj[3] ~ normal(0,1);
   
   // IN[1] = 0;                 // initial abundances of size class 1 fish
-  IN[1] ~ uniform(0, 0);     // initial abundances of size class 1 fish
-  IN[2] ~ uniform(0, 1000);  // initial abundances of size class 2 fish
-  IN[3] ~ uniform(0, 1000);  // initial abundances of size class 3 fish
+  // IN[1] ~ uniform(0, 0);     // initial abundances of size class 1 fish
+  IN[1] ~ uniform(0, 1000);  // initial abundances of size class 2 fish
+  IN[2] ~ uniform(0, 1000);  // initial abundances of size class 3 fish
   
   //////////////////////////
   // variance term controlling unexplained variation in reproductive rate (BETA) 
