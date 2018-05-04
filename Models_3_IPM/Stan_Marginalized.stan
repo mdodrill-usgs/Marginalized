@@ -7,13 +7,15 @@ data{
  // matrix[NAZsamps, 3] bAZ;              // does not work with Poisson, b/c not an integer
  int bAZ[NAZsamps, 3];
  int seasNO[23];
- matrix[23, 3] bNOc;
+ // matrix[23, 3] bNOc;                   // does not work with Poisson, b/c not an integer
+ int bNOc[23,3];
  int NOpasses[23];
  int NCH;
  int ones[NCH];
  int FR[NCH];
  int last[NCH];
- matrix[NCH, 23] bCH;
+ // matrix[NCH, 23] bCH;                // does not work b/c used as an index somewhere
+ int bCH[NCH, 23];
  int sumf[NCH];
  int spawn[23];
 }
@@ -155,6 +157,7 @@ model{
   real pz[NCH, 23, 4];                                    // dims correct here.....?
   matrix[NAZsamps, 3]bpAZ;
   matrix[NAZsamps, 3]blamAZ;
+  matrix[23, 3]blamNO;
   
   ///////////////////////////
   // lphi is the logit of survival and is given a prior based on the lorenzen
@@ -162,8 +165,8 @@ model{
   // variation from the priod mode is determined by an estimated variance
   // parameter (sd_lphi)
   
-  // tau.lphi = pow(sd_lphi, -2);
-  // sd_lphi ~ uniform(0.01, 4);
+  // tau.lphi = pow(sd_lphi, -2);                              //remove
+  // sd_lphi ~ uniform(0.01, 4);                               //remove
   sd_lphi ~ normal(0,10);
   
   lphi[1,1] ~ normal(1.08, sd_lphi);
@@ -203,25 +206,26 @@ model{
    
    ///////////////////////////
    for(k in 1:NCH){
-    // pz[k,sumf[k],1] = equals(bCH[k,sumf[k]], 1);
-    // pz[k,sumf[k],2] = equals(bCH[k,sumf[k]], 2);
-    // pz[k,sumf[k],3] = equals(bCH[k,sumf[k]], 3);
+    // pz[k,sumf[k],1] = equals(bCH[k,sumf[k]], 1);                           //remove
+    // pz[k,sumf[k],2] = equals(bCH[k,sumf[k]], 2);                           //remove
+    // pz[k,sumf[k],3] = equals(bCH[k,sumf[k]], 3);                           //remove
     
     pz[k,sumf[k],1] = (1 == bCH[k,sumf[k]]);
     pz[k,sumf[k],2] = (2 == bCH[k,sumf[k]]);
     pz[k,sumf[k],3] = (3 == bCH[k,sumf[k]]);
     pz[k,sumf[k],4] = 0;
     
-    // for(j in sumf[k]:(last[k] - 1)){
-    //   for(i in 1:4){
-    //     pz[k,(j + 1),i] = inprod(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]]
-    //   }
-    // }
+    for(j in sumf[k]:(last[k] - 1)){
+      for(i in 1:4){
+        // pz[k,(j + 1),i] = inprod(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]]
+        pz[k,(j + 1),i] = dot_product(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]];
+      }
+    }
     
     // ll[k] = sum(pz[k, last[k],])
     // one[k] ~ dbin(ll[k], FR[k])
     
-    // target += FR[k] * log(sum(pz[23]));                                // make sure this is correct...
+    // target += FR[k] * log(sum(pz[,23,]));                                // make sure this is correct...
   }
   
   //////////////////////////
@@ -237,8 +241,8 @@ model{
   
   //////////////////////////
   // variance term controlling unexplained variation in reproductive rate (BETA) 
-  // tau_beta = pow(sd_beta,-2)
-  // sd_beta ~ dunif(0.1,4)
+  // tau_beta = pow(sd_beta,-2)                                            //remove
+  // sd_beta ~ dunif(0.1,4)                                                //remove
   sd_beta ~ normal(0, 10);                                                 // ask Charles here...
   
   // log of the median reproductive rate - i.e., an intercept
@@ -248,8 +252,8 @@ model{
   mu_I ~ uniform(0, 6);
   
   // variance term controlling unexplained variation in immigration
-  // tau_I = pow(sd_I,-2)
-  // sd_I ~ dunif(0.01,3)
+  // tau_I = pow(sd_I,-2)                                                    //remove
+  // sd_I ~ dunif(0.01,3)                                                    //remove
   sd_I ~ normal(0, 10);
   
   // calculate actual immigration in each interval on log scale
@@ -268,17 +272,19 @@ model{
       blpAZ[j,k] ~ normal(mu_AZ[k], sd_blp);
       bpAZ[j,k] = inv_logit(blpAZ[j,k]);
       blamAZ[j,k] = bpAZ[j,k] * bN[ts[j],k] * AZeff[j] / 35;
+      print("bpAZ = ", bpAZ[52,1]);
+      // print("blamAZ = ", blamAZ[52,]);
       bAZ[j,k] ~ poisson(blamAZ[j,k]);
     }
   }
   
   // 2012 - 2017 NO: starts in april 2012
-  // for(j in 1:23){
-  //   for(k in 1:3){
-  //     blamNO[j,k] = bp[j,k,k] * bpi * bN[(j + 46),k]
-  //     bNOc[j,k] ~ dpois(blamNO[j,k])
-  //   }
-  // }
+  for(j in 1:23){
+    for(k in 1:3){
+      blamNO[j,k] = bp[j,k,k] * bpi * bN[(j + 46),k];
+      bNOc[j,k] ~ poisson(blamNO[j,k]);
+    }
+  }
    
    
    
