@@ -78,14 +78,14 @@ JD.data <- list(NindCH = NindCH, n.occasions = n.occasions, indCH = indCH,
                 indf = indf, z = z, catch = catch)
 JD.par <- c('s', 'p', 'N')
 
-ni <- 200
+ni <- 3000
 nt <- 1
-nb <- 100
+nb <- 1500
 
-# t1 <- proc.time()
+t1 <- proc.time()
 JD.out <- jags(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Constant_N.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
-# t2 <- proc.time()
+t2 <- proc.time()
 
 print(JD.out, digits = 3)
 
