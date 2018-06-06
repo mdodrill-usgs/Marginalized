@@ -69,8 +69,34 @@ collapse.ch <- function(ch){
 
 
 #-----------------------------------------------------------------------------#
+# Function to generate inits for z in JS model with data augmentation. From Kery
+# and Schaub 2012
 
+js.multistate.init <- function(ch, nz){
+  ch[ch==2] <- NA
+  state <- ch
+  for (i in 1:nrow(ch)){
+    n1 <- min(which(ch[i,]==1))
+    n2 <- max(which(ch[i,]==1))
+    state[i,n1:n2] <- 2
+  }
+  state[state==0] <- NA
+  get.first <- function(x) min(which(!is.na(x)))
+  get.last <- function(x) max(which(!is.na(x)))   
+  f <- apply(state, 1, get.first)
+  l <- apply(state, 1, get.last)
+  for (i in 1:nrow(ch)){
+    state[i,1:f[i]] <- 1
+    if(l[i]!=ncol(ch)) state[i, (l[i]+1):ncol(ch)] <- 3
+    state[i, f[i]] <- 2
+  }   
+  state <- rbind(state, matrix(1, ncol = ncol(ch), nrow = nz))
+  # change with the book code! Need first col to be NA !
+  state[,1] <- NA  
+  return(state)
+}
 
+#-----------------------------------------------------------------------------#
 # Notes: this got really slow... speed it up?  --> maybe lapply or mapply
 
 # check out 'gelman.diag' in coda
