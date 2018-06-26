@@ -10,6 +10,7 @@
 #
 ###############################################################################
 setwd(paste0(getwd(), '/Models_1_CJS'))
+# setwd("U:/marginalized_2/Models_1_CJS/")
 library(R2jags)
 
 source("RBT_Functions.R", chdir = F)
@@ -33,7 +34,7 @@ CH.du <- cbind(rep(0, dim(CH)[1]), CH)
 
 n.occasions = ncol(CH.du)    # number of sampling occasions
 
-nz = 10
+nz = 5000
 CH.ms  = rbind(CH.du, array(0, dim = c(nz, n.occasions)))
 
 # Recode CH matrix: a 0 is not allowed in WinBUGS!
@@ -130,43 +131,29 @@ JD.data <- list(y = CH.ms, n.occasions = dim(CH.ms)[2], M = dim(CH.ms)[1])
 
 JD.par <- c('s', 'p', 'gamma', 'b', 'Nsuper', 'N', 'B')
 
-# js.multistate.init <- function(ch, nz){
-#   ch[ch==2] <- NA
-#   state <- ch
-#   for (i in 1:nrow(ch)){
-#     n1 <- min(which(ch[i,]==1))
-#     n2 <- max(which(ch[i,]==1))
-#     state[i,n1:n2] <- 2
-#   }
-#   state[state==0] <- NA
-#   get.first <- function(x) min(which(!is.na(x)))
-#   get.last <- function(x) max(which(!is.na(x)))   
-#   f <- apply(state, 1, get.first)
-#   l <- apply(state, 1, get.last)
-#   for (i in 1:nrow(ch)){
-#     state[i,1:f[i]] <- 1
-#     if(l[i]!=ncol(ch)) state[i, (l[i]+1):ncol(ch)] <- 3
-#     state[i, f[i]] <- 2
-#   }   
-#   state <- rbind(state, matrix(1, ncol = ncol(ch), nrow = nz))
-#   # change with the book code! Need first col to be NA !
-#   state[,1] <- NA  
-#   return(state)
-# }
 
 inits <- function(){list(z = js.multistate.init(CH.du, nz))}
 
-ni <- 100
+ni <- 20
 nt <- 1
-nb <- 50
+nb <- 10
 
 # t1 <- proc.time()
-JD.out <- jags(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
-               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
+# JD.out <- jags(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
+#                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 # t2 <- proc.time()
 
-print(JD.out, digits = 3)
+# print(JD.out, digits = 3)
 
 #-----------------------------------------------------------------------------#
+t1 <- proc.time()
+JD.out <- jags.parallel(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
+               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb,
+               export_obj_names = c("nb", "js.multistate.init", "CH.du", "nz",
+                                    "ni", "nt"))
+t2 <- proc.time()
 
-trace_plots(JD.out, "s")
+
+
+
+# trace_plots(JD.out, "s")
