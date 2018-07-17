@@ -9,8 +9,8 @@
 #  * 
 #
 ###############################################################################
-setwd(paste0(getwd(), '/Models_1_CJS'))
-# setwd("U:/marginalized_2/Models_1_CJS/")
+# setwd(paste0(getwd(), '/Models_1_CJS'))
+setwd("U:/marginalized_2/Models_1_CJS/")
 library(R2jags)
 
 source("RBT_Functions.R", chdir = F)
@@ -34,7 +34,7 @@ CH.du <- cbind(rep(0, dim(CH)[1]), CH)
 
 n.occasions = ncol(CH.du)    # number of sampling occasions
 
-nz = 5000
+nz = 5
 CH.ms  = rbind(CH.du, array(0, dim = c(nz, n.occasions)))
 
 # Recode CH matrix: a 0 is not allowed in WinBUGS!
@@ -138,20 +138,126 @@ ni <- 20
 nt <- 1
 nb <- 10
 
-# t1 <- proc.time()
-# JD.out <- jags(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
-#                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
-# t2 <- proc.time()
+t1 <- proc.time()
+JD.out <- jags(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
+               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
+t2 <- proc.time()
 
 # print(JD.out, digits = 3)
 
 #-----------------------------------------------------------------------------#
-t1 <- proc.time()
-JD.out <- jags.parallel(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
-               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb,
-               export_obj_names = c("nb", "js.multistate.init", "CH.du", "nz",
-                                    "ni", "nt"))
-t2 <- proc.time()
+# t1 <- proc.time()
+# JD.out <- jags.parallel(JD.data, inits = inits, JD.par, "JAGS_Discrete_Time_working.jags",
+#                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb,
+#                export_obj_names = c("nb", "js.multistate.init", "CH.du", "nz",
+#                                     "ni", "nt"))
+# t2 <- proc.time()
+
+
+#-----------------------------------------------------------------------------#
+###############################################################################
+#-----------------------------------------------------------------------------#
+library(foreach)
+library(doParallel)
+
+# n.core = 9  # really n.core * 3
+n.core = 3  # really n.core * 3
+
+cl1 = makeCluster(n.core) # number of cores you want to use
+registerDoParallel(cl1)
+
+# make sure each cluster has the packages used 
+cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
+
+all.t1 = proc.time()
+n.runs = 1
+
+# my.n.iter = c(10, 15)
+# my.n.iter = seq(0,5000,500)[- c(1,6:10)]
+# my.n.iter = c(2500,3000,3500,4000,4500)
+# my.n.iter = c(7000, 7500, 8000, 8500, 9000, 9500, 10000)
+
+my.nz = c(5, 10, 15, 20, 25, 30, 35, 40, 45)[1:3]
+
+
+big.fit.list = list()
+
+seeds <- sample(1:1e5, size = n.runs)   
+# seeds <- sample(1:1e5, size = n.runs*length(my.n.iter))   # change how the seed is done, new for every run !
+
+
+# let all of the clusters have whatever objects are in the workspace
+clusterExport(cl = cl1, varlist = ls(), envir = environment())
+
+start.time <- Sys.time()  # start timer
+
+# n = 1
+out = list()
+#--------------------------------------
+out <- foreach(j = seeds, .errorhandling = "pass") %:% 
+  
+  foreach(i = my.nz, .errorhandling = "pass") %dopar% {
+    
+    seed = j
+    
+    # iter.in = i
+    
+    nz = i
+    
+    CH.ms  = rbind(CH.du, array(0, dim = c(nz, n.occasions)))
+    JD.data <- list(y = CH.ms, n.occasions = dim(CH.ms)[2], M = dim(CH.ms)[1])
+    
+    inits.in = list(z = js.multistate.init(CH.du, nz))
+    
+    t1 <- proc.time()
+    
+    my.env = environment()
+    
+    # JD.re <- jags.parallel(JD.data, inits = NULL, JD.par, "JAGS_Discrete_RE.jags",
+    #                        n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
+    #                        jags.seed = seed, envir = my.env)   
+    
+    # add better name here.....!!!
+    JD.out <- jags.parallel(JD.data, inits = inits.in, JD.par, "JAGS_Discrete_Time_working.jags",
+                            n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb,
+                            export_obj_names = c("nb", "js.multistate.init", "CH.du", "nz",
+                                                 "ni", "nt", "seed"),
+                            jags.seed = seed, envir = my.env)
+    
+    t2 <- proc.time()
+    
+    # attr(JD.out, 'time') <- (t2 - t1)[3]
+    
+    name = paste0("U:/marginalized_2/working/", nz, "test.RData")
+    save.image(name)
+    
+    JD.out
+    
+  } 
+#--------------------------------------
+
+
+end.time = Sys.time()
+time.taken = end.time - start.time
+print(round(time.taken,2))
+
+all.t2 = proc.time()
+stopCluster(cl1)  # close the clusters
+
+
+length(out)
+length(out[[1]])
+
+all.out = do.call('c', out)
+length(all.out)
+
+
+
+
+
+
+
+
 
 
 
