@@ -10,7 +10,8 @@
 #  *  Clean up script...
 #
 ###############################################################################
-setwd(paste0(getwd(), '/Models_1_CJS'))
+# setwd(paste0(getwd(), '/Models_1_CJS'))
+setwd("U:/marginalized_2/Models_1_CJS")
 
 library(rstan)
 # library(arm)
@@ -295,7 +296,7 @@ q_plot(list("constant" = SM.c, "little t" = SM.t, "RE" = SM.re), par.name = "s")
 library(foreach)
 library(doParallel)
 
-n.core = 9 # really n.core * 3
+n.core = 5 # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -303,15 +304,16 @@ registerDoParallel(cl1)
 # make sure each cluster has the packages used 
 cllibs <- clusterEvalQ(cl1, c(library(rstan)))
 
-n.runs = 10
+n.runs = 20
 
 # nb = 50
 nt = 1
 nc = 3
 
 # my.n.iter = c(500, 550)
-my.n.iter = seq(0,10000,500)[- 1]
+# my.n.iter = seq(0,10000,500)[- 1]
 # my.n.iter = seq(5500,10000,500)
+my.n.iter = rep(2000,5)
 
 big.fit.list = list()
 
@@ -331,6 +333,7 @@ out <- foreach(j = seeds) %:%
   foreach(i = my.n.iter) %dopar% {
     
     seed = j
+    seed = seed + sample(1:1e5, size = 1)
     
     iter.in = i
     
@@ -351,7 +354,15 @@ out <- foreach(j = seeds) %:%
     
     
     # SM.c <- stan(fit = SM.c,     # faster to compile the model above...
-    SM.c <- stan("Stan_Marginalized_Constant.stan",     
+    # SM.c <- stan("Stan_Marginalized_Constant.stan",     
+    #              data = sm.data,
+    #              pars = sm.params,
+    #              control = list(adapt_delta = .85),
+    #              # chains = nc, iter = iter.in, warmup = nb, thin = nt, seed = seed, cores = 3)
+    #              chains = nc, iter = iter.in, thin = nt, seed = seed, cores = 3)
+    
+    
+    SM.t <- stan("Stan_Marginalized_Time.stan",
                  data = sm.data,
                  pars = sm.params,
                  control = list(adapt_delta = .85),
@@ -362,9 +373,9 @@ out <- foreach(j = seeds) %:%
     
     t2 <- proc.time()
     
-    attr(SM.c, 'time') <- (t2 - t1)[3]
+    attr(SM.t, 'time') <- (t2 - t1)[3]
     
-    SM.c
+    SM.t
     
   } 
 #--------------------------------------
@@ -385,10 +396,10 @@ length(out[[1]])
 all.out = do.call('c', out)
 length(all.out)
 
+tmp = run.times(all.out)
 
-
-all.stan.m.constant.test = all.out
-# rm(list=setdiff(ls(), c("all.stan.m.constant.test")))
+all.stan.m.time = all.out
+rm(list=setdiff(ls(), c("all.stan.m.time")))
 
 
 
