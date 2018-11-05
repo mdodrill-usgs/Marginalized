@@ -16,71 +16,69 @@ library(R2jags)
 source("RBT_Functions.R", chdir = F)
 
 # format data for model fitting
-indCH = CH
+Y = CH
 
-indCH[indCH[,] == 0] = 2
+Y[Y[,] == 0] = 2
 
-NindCH = nrow(indCH)         # number of capture histories 
-n.occasions = ncol(indCH)    # number of sampling occasions
+NY = nrow(Y)          # number of capture histories 
+Nint = ncol(Y) - 1    # number of intervals
 
 # Create vector with occasion of marking
 get.first <- function(x) min(which(x != 0))
 indf <- apply(CH, 1, get.first)
 
-z = known.state.cjs(CH)
+Z = known.state.cjs(CH)
 
 #-----------------------------------------------------------------------------#
 sink("JAGS_Discrete_Time.jags")
 cat("
-    model {
+model {
+  
+  for(t in 1:Nint){ 
+    phi[t] ~ dunif(0,1)
+    p[t] ~ dunif(0,1)
     
-    for(k in 1:(n.occasions - 1)){ 
+    omega[1,1,t] <- phi[t]
+    omega[1,2,t] <- 1 - phi[t]
+    omega[2,1,t] <- 0
+    omega[2,2,t] <- 1
     
-    s[k] ~ dunif(0,1)
-    tr[1,k,1] <- s[k]
-    tr[1,k,2] <- (1 - s[k])
-    tr[2,k,1] <- 0
-    tr[2,k,2] <- 1
+    rho[1,1,t] <- p[t]
+    rho[1,2,t] <- 1 - p[t]
+    rho[2,1,t] <- 0
+    rho[2,2,t] <- 1
+  }
+  
+  for(i in 1:NY){
+    Z[i,indf[i]] <- 1
     
-    p[k] ~ dunif(0,1)
-    pmat[1,k,1] <- p[k]
-    pmat[1,k,2] <- (1 - p[k])
-    pmat[2,k,1] <- 0
-    pmat[2,k,2] <- 1
+    for(t in indf[i]:Nint){
+      Z[i,(t + 1)] ~ dcat(omega[Z[i, t], , t])
+      Y[i,(t + 1)] ~ dcat(rho[Z[i, (t + 1)], , t])
     }
-    
-    for(i in 1:NindCH){
-    z[i, indf[i]] <- 1
-    
-    for(k in (indf[i] + 1):n.occasions){
-    
-    z[i,k] ~ dcat(tr[z[i, k-1], k-1, ])
-    
-    indCH[i,k] ~ dcat(pmat[z[i, k], k-1, ])
-    }
-    }
-    }
+  }
+}
     
     ", fill = TRUE)
 sink()    
 #-----------------------------------------------------------------------------#
 
 
-JD.data <- list(NindCH = NindCH, n.occasions = n.occasions, indCH = indCH, indf = indf, z = z)
-JD.par <- c('s', 'p')
+JD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
+JD.par <- c('phi', 'p')
 
-# JD.inits <- function(){list(s = runif((n.occasions - 1), 0, 1),
-#                             p = runif((n.occasions - 1), 0, 1),
+# JD.inits <- function(){list(s = runif((Nint - 1), 0, 1),
+#                             p = runif((Nint - 1), 0, 1),
 #                             z = cjs.init.z(CH, indf))}
 
 ni <- 10
 nt <- 1
 nb <- 5
 
-t1 <- proc.time()
+# t1 <- proc.time()
 JD.out <- jags(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Time.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
-t2 <- proc.time()
+# t2 <- proc.time()
 
 print(JD.out, digits = 3)
 #--------------------------------------
