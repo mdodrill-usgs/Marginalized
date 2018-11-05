@@ -75,9 +75,9 @@ sm.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
 sm.params = c('blp_pass')
 
 # MCMC settings
-ni = 1000
+ni = 10
 nt = 1
-nb = 500
+nb = 5
 nc = 1
 
 
