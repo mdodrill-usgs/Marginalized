@@ -4,7 +4,7 @@
 #        Discrete JAGS version
 #
 #  Notes:
-#  * 
+#  * Test change
 #
 #  To do: 
 #  * 
