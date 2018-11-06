@@ -5,6 +5,8 @@
 .Rproj
 *.rds*
 *.jags*
+*.OpenBUGS*
+*.WinBUGS*
 .bugs
 *working*
 /Runs
