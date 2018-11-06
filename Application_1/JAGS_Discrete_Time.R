@@ -1,7 +1,7 @@
 ###############################################################################
 #                                                                        Oct 18
-#        Fitting a multi-state version of a CJS model to the RBT data 
-#        Discrete JAGS version - fixed time effects
+#  Fitting a multi-state version of a CJS model to the RBT data 
+#  Discrete JAGS version - fixed time effects
 #
 #  Notes:
 #  * 
@@ -32,7 +32,7 @@ Z = known.state.cjs(CH)
 #-----------------------------------------------------------------------------#
 sink("JAGS_Discrete_Time.jags")
 cat("
-model {
+model{
   
   for(t in 1:Nint){ 
     phi[t] ~ dunif(0,1)
@@ -61,24 +61,19 @@ model {
     
     ", fill = TRUE)
 sink()    
+
 #-----------------------------------------------------------------------------#
-
-
 JD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
 JD.par <- c('phi', 'p')
-
-# JD.inits <- function(){list(s = runif((Nint - 1), 0, 1),
-#                             p = runif((Nint - 1), 0, 1),
-#                             z = cjs.init.z(CH, indf))}
 
 ni <- 10
 nt <- 1
 nb <- 5
 
-# t1 <- proc.time()
+t1 <- proc.time()
 JD.out <- jags(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Time.jags",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
-# t2 <- proc.time()
+t2 <- proc.time()
 
 print(JD.out, digits = 3)
 #--------------------------------------
@@ -171,4 +166,5 @@ tmp = run.times(all.out)
 all.jags.d.time.1 = all.out
 
 rm(list=setdiff(ls(), "all.jags.d.time.1"))
-
+#-----------------------------------------------------------------------------#
+# end
