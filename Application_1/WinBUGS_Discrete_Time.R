@@ -4,7 +4,8 @@
 #  Discrete WinBUGS version - fixed time effects
 #
 #  Notes:
-#  * 
+#  * WinBUGS will crash with indexing of omega and rho like other CJS examples,
+#    see note below.
 #
 #  To do: 
 #  * 
@@ -37,24 +38,38 @@ model{
   for(t in 1:Nint){ 
     phi[t] ~ dunif(0,1)
     p[t] ~ dunif(0,1)
+
+    # WinBUGS crashes if indexed with t as the third dimension
+    # omega[1,1,t] <- phi[t]
+    # omega[1,2,t] <- (1 - phi[t])
+    # omega[2,1,t] <- 0
+    # omega[2,2,t] <- 1
+    # 
+    # rho[1,1,t] <- p[t]
+    # rho[1,2,t] <- (1 - p[t])
+    # rho[2,1,t] <- 0
+    # rho[2,2,t] <- 1
+
+    omega[1,t,1] <- phi[t]
+    omega[1,t,2] <- (1 - phi[t])
+    omega[2,t,1] <- 0
+    omega[2,t,2] <- 1
     
-    omega[1,1,t] <- phi[t]
-    omega[1,2,t] <- 1 - phi[t]
-    omega[2,1,t] <- 0
-    omega[2,2,t] <- 1
-    
-    rho[1,1,t] <- p[t]
-    rho[1,2,t] <- 1 - p[t]
-    rho[2,1,t] <- 0
-    rho[2,2,t] <- 1
+    rho[1,t,1] <- p[t]
+    rho[1,t,2] <- (1 - p[t])
+    rho[2,t,1] <- 0
+    rho[2,t,2] <- 1
   }
   
   for(i in 1:NY){
     Z[i,indf[i]] <- 1
     
     for(t in indf[i]:Nint){
-      Z[i,(t + 1)] ~ dcat(omega[Z[i, t], , t])
-      Y[i,(t + 1)] ~ dcat(rho[Z[i, (t + 1)], , t])
+      # Z[i,(t + 1)] ~ dcat(omega[Z[i, t], , t])
+      # Y[i,(t + 1)] ~ dcat(rho[Z[i, (t + 1)], , t])
+
+      Z[i,(t+1)] ~ dcat(omega[Z[i, t], t, ])
+      Y[i,(t+1)] ~ dcat(rho[Z[i, (t+1)], t, ])
     }
   }
 }
@@ -65,9 +80,9 @@ sink()
 JD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
 JD.par <- c('phi', 'p')
 
-JD.inits <- function(){list(phi = runif((Nint), .5, .5),
-                            p = runif((Nint), .5, .5),
-                            Z = cjs.init.z(CH, indf))}
+# JD.inits <- function(){list(phi = runif((Nint), .4, .6),
+#                             p = runif((Nint), .4, .6),
+#                             Z = cjs.init.z(CH, indf))}
 
 
 ni <- 10
@@ -75,8 +90,7 @@ nt <- 1
 nb <- 5
 
 # t1 <- proc.time()
-# JD.out <- R2WinBUGS::bugs(JD.data, inits = NULL, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
-JD.out <- R2WinBUGS::bugs(JD.data, inits = JD.inits, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
+JD.out <- R2WinBUGS::bugs(JD.data, inits = NULL, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb, debug = TRUE)
 # t2 <- proc.time()
 
