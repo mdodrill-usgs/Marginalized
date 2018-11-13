@@ -1,10 +1,10 @@
 ###############################################################################
-#                                                                        Oct 18
+#                                                                        Nov 18
 #  Fitting a multi-state version of a CJS model to the RBT data 
-#        Marginalized OpenBUGS version - fixed time effects
+#  Marginalized OpenBUGS version - fixed time effects
 #
 #  Notes:
-#  * 
+#  * Check out 'dclone' - run OpenBUGS and WinBUGS in parallel
 #
 #  To do: 
 #  * 
@@ -80,100 +80,97 @@ nb <- 50
 # be explicit on the call to 'bugs', as the names are same for both R2WinBUGS and R2OpenBUGS
 t1 <- proc.time()
 JM.out <- R2OpenBUGS::bugs(JM.data, inits = NULL, JM.par, "OpenBUGS_Marginalized_Time.OpenBUGS",
-               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
+               # n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
+               n.chains = 3, n.iter = ni, n.thin = nt)
 t2 <- proc.time()
 
 print(JM.out, digits = 3)
 
-#--------------------------------------
-# t1 <- proc.time()
-# JM.out <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-#                         n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb,
-#                         export_obj_names = c("ni", "nt", "nb"))
-# 
-# t2 <- proc.time()
-# 
-# print(JM.out, digits = 3)
-# 
 
 #-----------------------------------------------------------------------------#
-# library(foreach)
-# library(doParallel)
-# 
-# n.core = 5  # really n.core * 3
-# 
-# cl1 = makeCluster(n.core) # number of cores you want to use
-# registerDoParallel(cl1)
-# 
-# # make sure each cluster has the packages used 
-# cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
-# 
-# all.t1 = proc.time()
-# n.runs = 20
-# 
-# # my.n.iter = c(10, 15)
-# # my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = rep(2000, 5)
-# 
-# big.fit.list = list()
-# 
-# seeds <- sample(1:1e5, size = n.runs)   
-# 
-# # let all of the clusters have whatever objects are in the workspace
-# clusterExport(cl = cl1, varlist = ls(), envir = environment())
-# 
-# start.time <- Sys.time()  # start timer
-# 
-# # n = 1
-# out = list()
-# #--------------------------------------
-# out <- foreach(j = seeds) %:% 
-#   
-#   foreach(i = my.n.iter) %dopar% {
-#     
-#     seed = j
-#     seed = seed + sample(1:1e5, size = 1)
-#     
-#     iter.in = i
-#     
-#     t1 <- proc.time()
-#     
-#     my.env = environment()
-#     
-#     JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-#                           n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-#                           jags.seed = seed, envir = my.env) 
-#     
-#     t2 <- proc.time()
-#     
-#     attr(JM.t, 'time') <- (t2 - t1)[3]
-#     
-#     JM.t
-#     
-#   } 
-# #--------------------------------------
-# 
-# 
-# end.time = Sys.time()
-# time.taken = end.time - start.time
-# print(round(time.taken,2))
-# 
-# all.t2 = proc.time()
-# stopCluster(cl1)  # close the clusters
-# 
-# 
-# length(out)
-# length(out[[1]])
-# 
-# all.out = do.call('c', out)
-# length(all.out)
-# 
+library(foreach)
+library(doParallel)
+
+n.core = 30
+
+cl1 = makeCluster(n.core) # number of cores you want to use
+registerDoParallel(cl1)
+
+# make sure each cluster has the packages used
+cllibs <- clusterEvalQ(cl1, c(library(R2OpenBUGS)))
+
+all.t1 = proc.time()
+n.runs = 10
+
+# my.n.iter = c(10, 15)
+my.n.iter = seq(0,10000,500)[- 1]
+# my.n.iter = rep(100, 5)
+
+big.fit.list = list()
+
+# seeds <- sample(1:1e5, size = n.runs)
+seeds <- rep(0, n.runs)
+
+# let all of the clusters have whatever objects are in the workspace
+clusterExport(cl = cl1, varlist = ls(), envir = environment())
+
+start.time <- Sys.time()  # start timer
+
+# n = 1
+out = list()
+#--------------------------------------
+out <- foreach(j = seeds) %:%
+
+  foreach(i = my.n.iter) %dopar% {
+
+    seed = j
+    # seed = seed + sample(1:1e5, size = 1)
+    seed = seed + sample(1:14, size = 1)
+
+    iter.in = i
+
+    t1 <- proc.time()
+
+    my.env = environment()
+
+    # JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
+    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
+    #                       jags.seed = seed, envir = my.env)
+    
+    JM.t <- R2OpenBUGS::bugs(JM.data, inits = NULL, JM.par, "OpenBUGS_Marginalized_Time.OpenBUGS",
+                               n.chains = 3, n.iter = iter.in, n.thin = nt,
+                             bugs.seed = seed)
+
+    t2 <- proc.time()
+
+    attr(JM.t, 'time') <- (t2 - t1)[3]
+
+    JM.t
+
+  }
+#--------------------------------------
+
+
+end.time = Sys.time()
+time.taken = end.time - start.time
+print(round(time.taken,2))
+
+all.t2 = proc.time()
+stopCluster(cl1)  # close the clusters
+
+
+length(out)
+length(out[[1]])
+
+all.out = do.call('c', out)
+length(all.out)
+
 # tmp = run.times(all.out)
-# 
-# all.jags.d.time.1 = all.out
-# 
-# rm(list=setdiff(ls(), "all.jags.d.time.1"))
-# 
-# 
-# 
-# #-----------------------------------------------------------------------------#
+
+all.Open.m.time.1 = all.out
+
+rm(list=setdiff(ls(), "all.Open.m.time.1"))
+
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/Open_M_Time.RData")
+
+#-----------------------------------------------------------------------------#
