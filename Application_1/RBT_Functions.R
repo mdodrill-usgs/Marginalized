@@ -174,11 +174,40 @@ run.times = function(fit.list){
       
     }
     
+    if(class(fit.list[[i]]) == "bugs"){
+      out[i,]$fitter = "bugs"
+      
+      # get the n.iter
+      out[i,]$iterations = fit.list[[i]]$n.iter
+      
+      # get the n.eff
+      n.eff = fit.list[[i]]$summary[,9]
+      
+      f1 = coda::mcmc.list(lapply(1:fit.list[[i]]$n.chain, function(x) coda::mcmc(fit.list[[i]]$sims.array[,x,])))
+      
+      n.eff.2 = coda::effectiveSize(f1)
+      
+      # cut out the deviance value (only n.eff for parms), different than JAGS, deviance is at the end
+      out[i,]$min.n.eff = min(n.eff[1:length(n.eff)-1])
+      
+      out[i,]$min.n.eff.2 = min(n.eff.2[1:length(n.eff.2)-1])
+      
+      # model name
+      out[i,]$model = fit.list[[i]]$model.file
+      
+      # count of Rhat over 1.1  (this includes the like/deviance)
+      tmp.r.hat = fit.list[[i]]$summary[,8]
+      
+      out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+      
+    }
+    
     # get time to fit model, stored as an attribute
     out[i,]$run.time = ifelse(is.null(attr(fit.list[[i]], "time")), "NA", attr(fit.list[[i]], "time")) 
   }
   
-  out$efficiency = out$min.n.eff / out$run.time  
+  # out$efficiency = out$min.n.eff / out$run.time  
+  out$efficiency = out$min.n.eff.2 / out$run.time  
   
   return(out)
 }
