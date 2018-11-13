@@ -1,7 +1,7 @@
 ###############################################################################
 #                                                                        Oct 18
 #  Fitting a multi-state version of a CJS model to the RBT data 
-#        Marginalized WinBUGS version - fixed time effects
+#  Marginalized WinBUGS version - fixed time effects
 #
 #  Notes:
 #  * 
@@ -97,83 +97,88 @@ print(JM.out, digits = 3)
 
 
 #-----------------------------------------------------------------------------#
-# library(foreach)
-# library(doParallel)
-# 
-# n.core = 5  # really n.core * 3
-# 
-# cl1 = makeCluster(n.core) # number of cores you want to use
-# registerDoParallel(cl1)
-# 
-# # make sure each cluster has the packages used 
-# cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
-# 
-# all.t1 = proc.time()
-# n.runs = 20
-# 
-# # my.n.iter = c(10, 15)
-# # my.n.iter = seq(0,10000,500)[- 1]
+library(foreach)
+library(doParallel)
+
+n.core = 30  
+
+cl1 = makeCluster(n.core) # number of cores you want to use
+registerDoParallel(cl1)
+
+# make sure each cluster has the packages used
+cllibs <- clusterEvalQ(cl1, c(library(R2WinBUGS)))
+
+all.t1 = proc.time()
+n.runs = 10
+
+# my.n.iter = c(10, 15)
+# my.n.iter = seq(0,10000,500)[- 1]
 # my.n.iter = rep(2000, 5)
-# 
-# big.fit.list = list()
-# 
-# seeds <- sample(1:1e5, size = n.runs)   
-# 
-# # let all of the clusters have whatever objects are in the workspace
-# clusterExport(cl = cl1, varlist = ls(), envir = environment())
-# 
-# start.time <- Sys.time()  # start timer
-# 
-# # n = 1
-# out = list()
-# #--------------------------------------
-# out <- foreach(j = seeds) %:% 
-#   
-#   foreach(i = my.n.iter) %dopar% {
-#     
-#     seed = j
-#     seed = seed + sample(1:1e5, size = 1)
-#     
-#     iter.in = i
-#     
-#     t1 <- proc.time()
-#     
-#     my.env = environment()
-#     
-#     JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-#                           n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-#                           jags.seed = seed, envir = my.env) 
-#     
-#     t2 <- proc.time()
-#     
-#     attr(JM.t, 'time') <- (t2 - t1)[3]
-#     
-#     JM.t
-#     
-#   } 
-# #--------------------------------------
-# 
-# 
-# end.time = Sys.time()
-# time.taken = end.time - start.time
-# print(round(time.taken,2))
-# 
-# all.t2 = proc.time()
-# stopCluster(cl1)  # close the clusters
-# 
-# 
-# length(out)
-# length(out[[1]])
-# 
-# all.out = do.call('c', out)
-# length(all.out)
-# 
+my.n.iter = rep(100, 5)
+
+big.fit.list = list()
+
+seeds <- sample(1:1e5, size = n.runs)
+
+# let all of the clusters have whatever objects are in the workspace
+clusterExport(cl = cl1, varlist = ls(), envir = environment())
+
+start.time <- Sys.time()  # start timer
+
+# n = 1
+out = list()
+#--------------------------------------
+out <- foreach(j = seeds) %:%
+
+  foreach(i = my.n.iter) %dopar% {
+
+    seed = j
+    seed = seed + sample(1:1e5, size = 1)
+
+    iter.in = i
+
+    t1 <- proc.time()
+
+    my.env = environment()
+
+    # JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
+    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
+    #                       jags.seed = seed, envir = my.env)
+
+    JM.t <- R2WinBUGS::bugs(JM.data, inits = NULL, JM.par, "WinBUGS_Marginalized_Time.WinBUGS",
+                              n.chains = 3, n.iter = iter.in, n.thin = nt,
+                            bugs.seed = seed)
+    
+    t2 <- proc.time()
+
+    attr(JM.t, 'time') <- (t2 - t1)[3]
+
+    JM.t
+
+  }
+#--------------------------------------
+
+
+end.time = Sys.time()
+time.taken = end.time - start.time
+print(round(time.taken,2))
+
+all.t2 = proc.time()
+stopCluster(cl1)  # close the clusters
+
+
+length(out)
+length(out[[1]])
+
+all.out = do.call('c', out)
+length(all.out)
+
 # tmp = run.times(all.out)
-# 
-# all.jags.d.time.1 = all.out
-# 
-# rm(list=setdiff(ls(), "all.jags.d.time.1"))
-# 
-# 
-# 
-# #-----------------------------------------------------------------------------#
+
+all.bugs.m.time.1 = all.out
+
+rm(list=setdiff(ls(), "all.bugs.m.time.1"))
+
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/bugs_M_Time.RData")
+
+#-----------------------------------------------------------------------------#
