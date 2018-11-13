@@ -77,18 +77,107 @@ model{
 sink()    
 
 #-----------------------------------------------------------------------------#
-JD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
-JD.par <- c('phi', 'p')
+OD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
+OD.par <- c('phi', 'p')
 
 ni <- 10
 nt <- 1
 nb <- 5
 
 t1 <- proc.time()
-JD.out <- R2OpenBUGS::bugs(JD.data, inits = NULL, JD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
+OD.out <- R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 t2 <- proc.time()
 
-print(JD.out, digits = 3)
+print(OD.out, digits = 3)
+
+#-----------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+library(foreach)
+library(doParallel)
+
+n.core = 10
+
+cl1 = makeCluster(n.core) # number of cores you want to use
+registerDoParallel(cl1)
+
+# make sure each cluster has the packages used
+cllibs <- clusterEvalQ(cl1, c(library(R2OpenBUGS)))
+
+all.t1 = proc.time()
+n.runs = 10
+
+# my.n.iter = c(10, 15)
+my.n.iter = seq(0,10000,500)[- 1]
+# my.n.iter = rep(100, 5)
+
+my.n.iter = my.n.iter[1:5]
+
+big.fit.list = list()
+
+# seeds <- sample(1:1e5, size = n.runs)
+seeds <- rep(0, n.runs)
+
+# let all of the clusters have whatever objects are in the workspace
+clusterExport(cl = cl1, varlist = ls(), envir = environment())
+
+start.time <- Sys.time()  # start timer
+
+# n = 1
+out = list()
+#--------------------------------------
+out <- foreach(j = seeds) %:%
+  
+  foreach(i = my.n.iter) %dopar% {
+    
+    seed = j
+    # seed = seed + sample(1:1e5, size = 1)
+    seed = seed + sample(1:14, size = 1)
+    
+    iter.in = i
+    
+    t1 <- proc.time()
+    
+    my.env = environment()
+    
+    # JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
+    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
+    #                       jags.seed = seed, envir = my.env)
+    
+    OD.t <- R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
+                             n.chains = 3, n.iter = iter.in, n.thin = nt,
+                             bugs.seed = seed)
+    
+    t2 <- proc.time()
+    
+    attr(OD.t, 'time') <- (t2 - t1)[3]
+    
+    OD.t
+    
+  }
+#--------------------------------------
+
+
+end.time = Sys.time()
+time.taken = end.time - start.time
+print(round(time.taken,2))
+
+all.t2 = proc.time()
+stopCluster(cl1)  # close the clusters
+
+
+length(out)
+length(out[[1]])
+
+all.out = do.call('c', out)
+length(all.out)
+
+# tmp = run.times(all.out)
+
+all.Open.d.time.1 = all.out
+
+rm(list=setdiff(ls(), "all.Open.d.time.1"))
+
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/Open_D_Time.RData")
 
 #-----------------------------------------------------------------------------#
