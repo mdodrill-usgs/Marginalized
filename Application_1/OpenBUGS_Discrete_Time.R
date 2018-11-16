@@ -96,7 +96,7 @@ print(OD.out, digits = 3)
 library(foreach)
 library(doParallel)
 
-n.core = 10
+n.core = 30
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -109,9 +109,10 @@ n.runs = 10
 
 # my.n.iter = c(10, 15)
 my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = rep(100, 5)
+# my.n.iter = rep(500, 1)
 
-my.n.iter = my.n.iter[1:5]
+# my.n.iter = my.n.iter[1:10]
+my.n.iter = my.n.iter[11:20]
 
 big.fit.list = list()
 
@@ -126,37 +127,36 @@ start.time <- Sys.time()  # start timer
 # n = 1
 out = list()
 #--------------------------------------
-out <- foreach(j = seeds) %:%
+out <- foreach(j = seeds, .errorhandling = 'pass') %:%
   
   foreach(i = my.n.iter) %dopar% {
     
     seed = j
-    # seed = seed + sample(1:1e5, size = 1)
-    seed = seed + sample(1:14, size = 1)
+    seed = seed + sample(1:14, size = 1) # must be integer between 1 and 14, see ?bugs
     
     iter.in = i
     
     t1 <- proc.time()
     
-    my.env = environment()
-    
-    # JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                       jags.seed = seed, envir = my.env)
-    
-    OD.t <- R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
-                             n.chains = 3, n.iter = iter.in, n.thin = nt,
-                             bugs.seed = seed)
+    result <- tryCatch({
+      out = R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
+                               n.chains = 3, n.iter = iter.in, n.thin = nt,
+                               bugs.seed = seed)
+    }, 
+      warning = function(war) {
+        return('BUGS can return a warning -- What!?')}, 
+      error = function(err) {
+        return(NULL)} 
+    ) # END tryCatch
     
     t2 <- proc.time()
     
-    attr(OD.t, 'time') <- (t2 - t1)[3]
+    attr(result, 'time') <- (t2 - t1)[3]
     
-    OD.t
+    return(result)
     
   }
 #--------------------------------------
-
 
 end.time = Sys.time()
 time.taken = end.time - start.time
@@ -172,7 +172,7 @@ length(out[[1]])
 all.out = do.call('c', out)
 length(all.out)
 
-# tmp = run.times(all.out)
+tmp = run.times(all.out)
 
 all.Open.d.time.1 = all.out
 
