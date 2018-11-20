@@ -89,11 +89,108 @@ ni <- 10
 nt <- 1
 nb <- 5
 
-# t1 <- proc.time()
+t1 <- proc.time()
 JD.out <- R2WinBUGS::bugs(JD.data, inits = NULL, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
-               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb, debug = TRUE)
-# t2 <- proc.time()
+               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb, debug = FALSE)
+t2 <- proc.time()
 
 print(JD.out, digits = 3)
+
+#-----------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+library(foreach)
+library(doParallel)
+
+n.core = 30
+
+cl1 = makeCluster(n.core) # number of cores you want to use
+registerDoParallel(cl1)
+
+# make sure each cluster has the packages used
+cllibs <- clusterEvalQ(cl1, c(library(R2WinBUGS)))
+
+all.t1 = proc.time()
+n.runs = 10
+
+# my.n.iter = c(10, 15)
+my.n.iter = seq(0,10000,500)[- 1]
+# my.n.iter = rep(500, 1)
+
+# my.n.iter = my.n.iter[1]
+# my.n.iter = my.n.iter[1:10]
+# my.n.iter = my.n.iter[11:20]
+
+big.fit.list = list()
+
+# seeds <- sample(1:1e5, size = n.runs)
+seeds <- rep(0, n.runs)
+
+# let all of the clusters have whatever objects are in the workspace
+clusterExport(cl = cl1, varlist = ls(), envir = environment())
+
+start.time <- Sys.time()  # start timer
+
+# n = 1
+out = list()
+#--------------------------------------
+out <- foreach(j = seeds, .errorhandling = 'pass') %:%
+  
+  foreach(i = my.n.iter) %dopar% {
+    
+    seed = j
+    # seed = seed + sample(1:14, size = 1) # must be integer between 1 and 14, see ?bugs
+    seed = seed + sample(1:1e4, size = 1)
+    
+    iter.in = i
+    
+    t1 <- proc.time()
+    
+    result <- tryCatch({
+      # out = R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
+      #                        n.chains = 3, n.iter = iter.in, n.thin = nt,
+      #                        bugs.seed = seed)
+      out <- R2WinBUGS::bugs(JD.data, inits = NULL, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
+                                n.chains = 3, n.iter = iter.in, n.thin = nt,
+                             bugs.seed = seed)
+      
+    }, 
+    warning = function(war) {
+      return('BUGS can return a warning -- What!?')}, 
+    error = function(err) {
+      return(NULL)} 
+    ) # END tryCatch
+    
+    t2 <- proc.time()
+    
+    if(is.null(result) == FALSE){
+      attr(result, 'time') <- (t2 - t1)[3]
+    }
+    
+    return(result)
+    
+  }
+#--------------------------------------
+
+end.time = Sys.time()
+time.taken = end.time - start.time
+print(round(time.taken,2))
+
+all.t2 = proc.time()
+stopCluster(cl1)  # close the clusters
+
+
+length(out)
+length(out[[1]])
+
+all.out = do.call('c', out)
+length(all.out)
+
+tmp = run.times(all.out)
+
+all.bugs.d.time.2 = all.out
+
+rm(list=setdiff(ls(), "all.bugs.d.time.2"))
+
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_D_Time_2.RData")
 
 #-----------------------------------------------------------------------------#
