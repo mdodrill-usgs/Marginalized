@@ -36,6 +36,24 @@
 #	Get last capture occasion:
 		find.last<-function(x){ifelse(length(which(x!=5))==1,27,max(which(x!=5)))}
 
+#  IMPORT DATA:
+dat<-read.csv(".//HBC_data.csv")
+sumCH<-dat[,1:27]
+sumFR<-dat[,28]
+newtag.AO<-dat[,29]
+ 
+#  OTHER:
+season<-(rep(1:3,8),1:2) #season index
+LCRs<-c(2,3,5,6,8,9,11:26)
+LCRns<-c(1,4,7,10)
+CRs<-c(1,2,4,5,7:26)
+CRns<-c(3,6)
+catch<-matrix(c( 287,  545,  221,  594,  215,  413,  500,  374,  562,
+		 193,  356,  171,  191,  111,  239,  259,  283,  246,
+		 102,  129,  154,   54,   63,   48,   36,   41,   35,
+		 35,   86,   126,   41,   43,   59,   22,   26,   34), nrow=4, byrow=TRUE)
+
+
 ######################################################################
 ## OpenBUGS-Discrete
 
@@ -798,7 +816,7 @@ library(rstan)
 smre.inits <- function() {list(mu_ls = rep(0,4))}
 smre.params <- c("s","g","m","mu_ls","mu_lg","mu_lm","sd_ls","sd_lm","sd_lg", "tau", "p_lcr","p_cr", "N") 
 smre.data<-list(NsumCH=dim(CHseason)[1],sumCH=CHseason,sumf=as.vector(fc),season=season,sumFR=FRseason,LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns, 
-				fall_ind=1:9*3-1,catch_mat=array(catch,dim=c(dim(catch)[1],dim(catch)[2])),lc=as.vector(lc))
+				fall_ind=1:9*3-1,catch_mat=array(catch,dim=c(dim(catch)[1],dim(catch)[2])),lc=as.vector(lc),newtag=as.vector(newtag.AO))
 
 ## Call Stan from R 
 SMRE <- stan(".\\chub_SMRE_noncentered.stan", 
