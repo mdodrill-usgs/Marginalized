@@ -1,7 +1,7 @@
 ###############################################################################
-#                                                                      March 18
-#        Fitting an Integrated Population Model to Brown Trout Data
-#        Marginalized Stan version 
+#                                                                        Nov 18
+#  Fitting an Integrated Population Model to Brown Trout Data
+#  Marginalized Stan version 
 #
 #  Notes:
 #  * The model runs from the fall of 2000 to fall of 2017 on a seasonal basis
@@ -12,7 +12,7 @@
 #  * 
 #
 ###############################################################################
-setwd('C:\\Users\\mdodrill\\Desktop\\Fish_Git\\marginalized_2\\Models_3_IPM')
+setwd(paste0(getwd(), '/Application_6'))
 library(rstan)
 
 rstan_options(auto_write = TRUE)
@@ -73,21 +73,28 @@ sm.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
 #                'sd.beta', "bN")
 
 sm.params = c('blp_pass')
+# sm.params = c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
+#               "mu_I", "I", "Beta", "IN", "AZadj", "sd_I", "sd_lphi", "sd_blp",
+#               'sd_beta', "bN")
 
 # MCMC settings
-ni = 10
+ni = 100
 nt = 1
-nb = 5
-nc = 1
+nb = 50
+nc = 3
 
 
 # Call Stan from R 
 SM.c <- stan("Stan_Marginalized.stan",
              data = sm.data,
              pars = sm.params,
-             control = list(max_treedepth = 14, adapt_delta = .925),
+             # control = list(max_treedepth = 14, adapt_delta = .925),
+             control = list(adapt_delta = .975),
              chains = nc, iter = ni, thin = nt, seed = 1) 
 
-SM.c
+
 
 #-----------------------------------------------------------------------------#
+# library(shinystan)
+# 
+# launch_shinystan(object = SM.c)
