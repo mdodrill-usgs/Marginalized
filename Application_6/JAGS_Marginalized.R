@@ -1,7 +1,7 @@
 ###############################################################################
-#                                                                      March 18
-#        Fitting an Integrated Population Model to Brown Trout Data
-#        Marginalized JAGS version 
+#                                                                        Nov 18
+#  Fitting an Integrated Population Model to Brown Trout Data
+#  Marginalized JAGS version 
 #
 #  Notes:
 #  * The model runs from the fall of 2000 to fall of 2017 on a seasonal basis
@@ -12,13 +12,10 @@
 #  * 
 #
 ###############################################################################
-
-
-print(BM_JM, digits = 3)
-
-#-----------------------------------------------------------------------------#setwd('C:\\Users\\mdodrill\\Desktop\\Fish_Git\\marginalized_2\\Models_3_IPM')
+setwd(paste0(getwd(), '/Application_6'))
 library(R2jags)
 
+#-----------------------------------------------------------------------------#
 # read in data
 NO_catch <- read.csv(paste0(getwd(), "/Data/", "NO_catch.csv"), header = TRUE)
 AZGF_catch <- read.csv(paste0(getwd(), "/Data/", "AZGF_catch.csv"), header = TRUE)
@@ -46,7 +43,7 @@ sumf <- apply(bCH, 1, findfirst)
 sink("JAGS_Marginalized.jags")
 cat("
 model {
-  # lphi is the logit of survival and is given a prior based on the lorenzen
+  # lphi is the logit of survival and is given a prior based on the Lorenzen
   # function and the average mass of fish in each size class during each season.
   # variation from the priod mode is determined by an estimated variance
   # parameter (sd.lphi)
@@ -110,8 +107,8 @@ model {
     mu.blp[i] ~ dnorm(-3, .25) # mean pcaps per pass on a logit scale for three size classes, plus largest size class during spawning season
   }
   
+  # this loop calculates actual per pass pcaps for each trip and modifies based on # of passes  
   for(j in 1:23){
-    #this loop calculates actual per pass pcaps for each trip and modifies based on # of passes
     spawn[j] <- 3 + step(-1 * seasNO[j] + 1.1)  # change here to use 'spawn' input
     blp_pass[j,1] ~ dnorm(mu.blp[1], tau.blp)
     blp_pass[j,2] ~ dnorm(mu.blp[2], tau.blp)
@@ -151,7 +148,6 @@ model {
     one[k] ~ dbin(ll[k], FR[k])
   }
   
-  
   # calculate offset for each size classes of AZGF effort and calculate expected pcap
   AZadj[1] ~ dnorm(0,1)
   AZadj[2] ~ dnorm(0,1)
@@ -160,8 +156,8 @@ model {
   mu.AZ[2] <- mu.blp[2] + AZadj[2]
   mu.AZ[3] <- mu.blp[3] + AZadj[3]
   IN[1] <- 0 # initial abundances of size class 1 fish
-  IN[2] ~ dunif(0, 1000)# initial abundances of size class 2 fish
-  IN[3] ~ dunif(0, 1000)# initial abundances of size class 3 fish
+  IN[2] ~ dunif(0, 1000) # initial abundances of size class 2 fish
+  IN[3] ~ dunif(0, 1000) # initial abundances of size class 3 fish
   bN[1,1] <- IN[1]
   bN[1,2] <- IN[2]
   bN[1,3] <- IN[3]
@@ -193,7 +189,7 @@ model {
       bN[((j-1) * 4 + k + 1),3] <- btrans[2,3,k] * bN[((j-1) * 4 + k),2] + btrans[3,3,k] * bN[((j-1) * 4 + k),3] + exp(I[((j-1) * 4 + k)])
     }
     
-    # BNT eggs produced in winter as a function weighted sum of adults (wA) and reprodutive rate (Beta)
+    # BNT recruits produced in fall as a function weighted sum of adults (wA) and reprodutive rate (Beta) in winter
     wA[j] <- (bN[((j - 1) * 4 + 2),2] + 4 * bN[((j - 1) * 4 + 2),3])
     beta.eps[j] ~ dnorm(0, tau.beta)
     Beta[j] <- exp(lbeta.0 + beta.eps[j]) 
@@ -203,7 +199,7 @@ model {
     bN[(1 + j * 4),2] <- btrans[1,2,4] * bN[(j * 4),1] + btrans[2,2,4] * bN[(j * 4),2]
     bN[(1 + j * 4),3] <- btrans[2,3,4] * bN[(j * 4),2] + btrans[3,3,4] * bN[(j * 4),3] + exp(I[(j * 4)])
   }
-
+  
   # 2000 - 2017 AZGF data
   for(j in 1:NAZsamps){
     for(k in 1:3){
@@ -225,8 +221,8 @@ model {
 }
     ",fill=TRUE)
 sink()
-#-----------------------------------------------------------------------------#
 
+#-----------------------------------------------------------------------------#
 BM_JM.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
                    seasNO = seasNO, bNOc = bNOc, NOpasses = NOpasses, ones = FR,
                    FR = FR, last = last, bCH = bCH, NCH = NCH, sumf = sumf)
@@ -235,8 +231,19 @@ BM_JM.par <- c('beta.I', 'bphi', 'bpsi1', 'bpsi2', 'mu.blp', 'sd.blp', "lbeta.0"
              "mu.I", "I", "Beta", "IN", "AZadj", "sd.I", "sd.lphi", "sd.blp",
              'sd.beta', "bN")
 
-# ni <- 10000
-ni <- 1000
+ni <- 10000
+# ni <- 1000
 
+t1 <- proc.time()
 BM_JM <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "JAGS_Marginalized.jags",
                        n.chains = 3, n.iter = ni, export_obj_names = c("ni"))
+t2 <- proc.time()
+#-----------------------------------------------------------------------------#
+
+
+
+
+
+
+
+
