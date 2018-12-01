@@ -4,17 +4,14 @@ data{
  int NAZsamps;                            // Add bounds to everything?
  int ts[NAZsamps];
  vector [NAZsamps] AZeff;
- // matrix[NAZsamps, 3] bAZ;              // does not work with Poisson, b/c not an integer  remove
  int bAZ[NAZsamps, 3];
  int seasNO[23];
- // matrix[23, 3] bNOc;                   // does not work with Poisson, b/c not an integer  remove
  int bNOc[23,3];
  int NOpasses[23];
  int NCH;
  int ones[NCH];
  int FR[NCH];
  int last[NCH];
- // matrix[NCH, 23] bCH;                // does not work b/c used as an index somewhere  remove
  int bCH[NCH, 23];
  int sumf[NCH];
  int spawn[23];
@@ -22,50 +19,35 @@ data{
 
 parameters{
   matrix[3, 4]lphi;
-  // vector<lower = 0.01, upper = 4>[1] sd_lphi;                   // change to real?
-  real<lower = 0.01, upper = 4> sd_lphi;                   // change to real?
-  
+  real<lower = 0.01, upper = 4> sd_lphi;                  
   real<lower = 0, upper = 1> bpsi2;
   vector<lower = 0, upper = 1>[3] bpsi1;
-  
   real<lower = 0.1, upper = 2> sd_blp;
-  
   vector[4] mu_blp;
-  
   matrix[23, 3]blp_pass;
-  
   vector[3] AZadj;
-  
-  vector[2] IN;
-  
+  vector<lower = 0, upper = 1000>[2] IN;
   real<lower = 0.1, upper = 4> sd_beta;                  
   vector[17] beta_eps;
   real<lower = -6, upper = 0> lbeta_0;                                
   real<lower = 0, upper = 6> mu_I;                                    
   real<lower = 0.01, upper = 3> sd_I;
   vector[68] I;
-  
   matrix[NAZsamps, 3]blpAZ;
 }
 
 transformed parameters{
   matrix[3, 4]bphi;
   real btrans[4, 4, 4];                                                     
-  real bpi;
-  
   matrix[23,3]bp_pass;
   real bp[23,4,4];                                                          
-  
   vector[3] mu_AZ;
-  
   matrix[69,3] bN;                                                          
   vector[17] wA;
-  
   vector[17] Beta;
      
-for(j in 1:3){
+  for(j in 1:3){
     for(k in 1:4){
-      // logit(bphi[j,k]) = lphi[j,k];                  remove
       bphi[j,k] = inv_logit(lphi[j,k]);
     }
   }
@@ -97,8 +79,6 @@ for(j in 1:3){
   btrans[1,1,4] = 0;
   btrans[1,2,4] = bphi[1,4];
   
-  bpi = .08; // proportion of brown trout population in NO reach 1
-  
   // this loop calculates actual per pass pcaps for each trip and modifies based on # of passes
   for(j in 1:23){
     for(k in 1:3){
@@ -124,9 +104,7 @@ for(j in 1:3){
   mu_AZ[2] = mu_blp[2] + AZadj[2];
   mu_AZ[3] = mu_blp[3] + AZadj[3];
   
-  // Ask Charles, bN = 1, in JAGS this is set to 0
-  // bN[1,1] = IN[1];                               // change to set to 0 here, then remove IN[1] in model block
-  bN[1,1] = 1;                                      // will bomb (line 270-271), if 0,  blamAZ get set to 0!
+  bN[1,1] = 0;                                     
   bN[1,2] = IN[1];
   bN[1,3] = IN[2];
   
@@ -140,7 +118,6 @@ for(j in 1:3){
     
     // BNT recruits produced in fall as a function weighted sum of adults (wA) and reprodutive rate (Beta) in winter
     wA[j] = (bN[((j - 1) * 4 + 2),2] + 4 * bN[((j - 1) * 4 + 2),3]);
-    
     Beta[j] = exp(lbeta_0 + beta_eps[j]);
     
     // between summer and fall all bnt graduate to sz 2 & recruits show up
@@ -162,11 +139,6 @@ model{
   // variation from the priod mode is determined by an estimated variance
   // parameter (sd_lphi)
   
-  // tau.lphi = pow(sd_lphi, -2);                              //remove
-  // sd_lphi ~ uniform(0.01, 4);                               //remove
-  // sd_lphi ~ normal(0,10);
-  // sd_lphi ~ normal(0,1);  // HERE, remove 
-  
   lphi[1,1] ~ normal(1.08, sd_lphi);
   lphi[1,2] ~ normal(1.14, sd_lphi);
   lphi[1,3] ~ normal(1.26, sd_lphi);
@@ -181,15 +153,6 @@ model{
   lphi[3,4] ~ normal(2.29, sd_lphi);
   ///////////////////////////
   
-  // remove
-  // bpsi2 ~ uniform(0,1); // growth of size class 2 fish into size class 3
-  // bpsi1 ~ uniform(0,1);
-  
-  // sd_blp ~ dunif(0.1, 2); // trip to trip deviation in NO pcaps
-  // tau.blp = pow(sd_blp, -2);
-  // sd_blp ~ normal(0,10); 
-  // sd_blp ~ normal(0,2);  // HERE  , remove 
-  
   // mean pcaps per pass on a logit scale for three size classes, plus largest size class during spawning season
   for(i in 1:4){
     mu_blp[i] ~ normal(-3, 2);                                     // take this out of loop? 
@@ -197,19 +160,12 @@ model{
   
   // (done above in transformed) this loop calculates actual per pass pcaps for each trip and modifies based on # of passes
    for(j in 1:23){
-    // spawn[j] = 3 + step(-1 * seasNO[j] + 1.1)     // step(e) ...... 1 if e >= 0; 0 otherwise  (replaced with spawn as input data)                
     blp_pass[j,1] ~ normal(mu_blp[1], sd_blp);
     blp_pass[j,2] ~ normal(mu_blp[2], sd_blp);
     blp_pass[j,3] ~ normal(mu_blp[spawn[j]], sd_blp);
    }
    
-   
-   ///////////////////////////
    for(k in 1:NCH){
-    // pz[k,sumf[k],1] = equals(bCH[k,sumf[k]], 1);                           //remove
-    // pz[k,sumf[k],2] = equals(bCH[k,sumf[k]], 2);                           //remove
-    // pz[k,sumf[k],3] = equals(bCH[k,sumf[k]], 3);                           //remove
-    
     pz[k,sumf[k],1] = (1 == bCH[k,sumf[k]]);
     pz[k,sumf[k],2] = (2 == bCH[k,sumf[k]]);
     pz[k,sumf[k],3] = (3 == bCH[k,sumf[k]]);
@@ -222,13 +178,7 @@ model{
       }
     }
     
-    // ll[k] = sum(pz[k, last[k],])
-    // one[k] ~ dbin(ll[k], FR[k])
-    
-    target += FR[k] * log(sum(pz[k,last[k],]));                                // make sure this is correct...
-    // print("pz = ", sum(pz[k,last[k],]));
-    // print("pz = ", pz[1,23,1]);
-    // print("bp = ", bp[23,1,2]);
+    target += FR[k] * log(sum(pz[k,last[k],]));                            
     
   }
   
@@ -238,30 +188,7 @@ model{
   AZadj[2] ~ normal(0,1);
   AZadj[3] ~ normal(0,1);
   
-  // IN[1] = 0;                 // initial abundances of size class 1 fish
-  // IN[1] ~ uniform(0, 0);     // initial abundances of size class 1 fish
-  // IN[1] ~ uniform(0, 1000);  // initial abundances of size class 2 fish
-  // IN[2] ~ uniform(0, 1000);  // initial abundances of size class 3 fish
-  
-  //////////////////////////
-  // variance term controlling unexplained variation in reproductive rate (BETA) 
-  // tau_beta = pow(sd_beta,-2)                                            //remove
-  // sd_beta ~ dunif(0.1,4)                                                //remove
-  // sd_beta ~ normal(0, 10);                                                 // ask Charles here...
-  // sd_beta ~ normal(0, 2); // HERE                                                 // ask Charles here...
-  
-  // log of the median reproductive rate - i.e., an intercept
-  // lbeta_0 ~ uniform(-6, 0);
-  
-  // log of the median immigration rate of large brown trout - i.e., the intercept
-  // mu_I ~ uniform(0, 6);
-  
-  // variance term controlling unexplained variation in immigration
-  // tau_I = pow(sd_I,-2)                                                    //remove
-  // sd_I ~ dunif(0.01,3)                                                    //remove
-  // sd_I ~ normal(0, 10);
-  // sd_I ~ normal(0, 2);  // HERE
-  
+   
   // calculate actual immigration in each interval on log scale
   for(j in 1:68){                                                  // vectorize here?
     I[j] ~ normal(mu_I, sd_I);
@@ -273,40 +200,30 @@ model{
   
   //////////////////////////
   // 2000 - 2017 AZGF data
-  for(j in 1:NAZsamps){
-    for(k in 1:3){
+  for(j in 1:3){
+    for(k in 2:3){
       blpAZ[j,k] ~ normal(mu_AZ[k], sd_blp);
-       // print("blpAZ = ", blpAZ[j,k]);
+      bpAZ[j,k] = inv_logit(blpAZ[j,k]);
+      blamAZ[j,k] = bpAZ[j,k] * bN[ts[j],k] * AZeff[j] / 35;
+      bAZ[j,k] ~ poisson(blamAZ[j,k]);
     }
   }
  
   
-  for(j in 1:NAZsamps){
-  // for(j in 2:NAZsamps){   //changed index to avoid first zeros
+  for(j in 4:NAZsamps){
     for(k in 1:3){
-      // blpAZ[j,k] ~ normal(mu_AZ[k], sd_blp);
+      blpAZ[j,k] ~ normal(mu_AZ[k], sd_blp);
       bpAZ[j,k] = inv_logit(blpAZ[j,k]);
       blamAZ[j,k] = bpAZ[j,k] * bN[ts[j],k] * AZeff[j] / 35;
-      // print("bpAZ = ", bpAZ[j,k]);
-      // print("blpAZ = ", blpAZ[52,3]);
-      // print("bN = ", bN[ts[j],k]);
-      // print("blamAZ = ", blamAZ[52,1]);
-      // bAZ[j,k] ~ poisson(blamAZ[j,k]);
+      bAZ[j,k] ~ poisson(blamAZ[j,k]);
     }
   }
   
-    // for(j in 2:NAZsamps){
-    for(j in 2:NAZsamps){
-       for(k in 1:3){
-        bAZ[j,k] ~ poisson(blamAZ[j,k]);
-       }
-    }
-    
-  
+
   // 2012 - 2017 NO: starts in april 2012
   for(j in 1:23){
     for(k in 1:3){
-      blamNO[j,k] = bp[j,k,k] * bpi * bN[(j + 46),k];
+      blamNO[j,k] = bp[j,k,k] * 0.08 * bN[(j + 46),k];
       bNOc[j,k] ~ poisson(blamNO[j,k]);
     }
   }
