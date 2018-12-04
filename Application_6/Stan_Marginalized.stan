@@ -1,20 +1,19 @@
 // Marginalized Integrated Population Model - Brown Trout Data  
     
 data{
- int NAZsamps;                            // Add bounds to everything?
+ int NAZsamps;                            // Number of samples AGFD
  int ts[NAZsamps];
  vector [NAZsamps] AZeff;
  int bAZ[NAZsamps, 3];
  int seasNO[23];
  int bNOc[23,3];
  int NOpasses[23];
- int NCH;
- int ones[NCH];
+ int NCH;                       // Number of capture histories
  int FR[NCH];
  int last[NCH];
  int bCH[NCH, 23];
  int sumf[NCH];
- int spawn[23];
+ int spawn[23];               // Indicator for spawning month
 }
 
 parameters{
@@ -37,7 +36,7 @@ parameters{
 }
 
 transformed parameters{
-  matrix[3, 4]bphi;
+  matrix[3, 4]bphi;  // make this a parm -- between 0,1
   real btrans[4, 4, 4];                                                     
   matrix[23,3]bp_pass;
   real bp[23,4,4];                                                          
@@ -46,7 +45,7 @@ transformed parameters{
   vector[17] wA;
   vector[17] Beta;
      
-  for(j in 1:3){
+  for(j in 1:3){  // remove for no prior version
     for(k in 1:4){
       bphi[j,k] = inv_logit(lphi[j,k]);
     }
@@ -138,6 +137,8 @@ model{
   // function and the average mass of fish in each size class during each season.
   // variation from the priod mode is determined by an estimated variance
   // parameter (sd_lphi)
+  
+  // see note above on removing this
   
   lphi[1,1] ~ normal(1.08, sd_lphi);
   lphi[1,2] ~ normal(1.14, sd_lphi);

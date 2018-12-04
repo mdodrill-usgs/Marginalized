@@ -72,24 +72,23 @@ sm.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
 #                "mu.I", "I", "Beta", "IN", "AZadj", "sd.I", "sd.lphi", "sd.blp",
 #                'sd.beta', "bN")
 
-sm.params = c('blp_pass')
-# sm.params = c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
-#               "mu_I", "I", "Beta", "IN", "AZadj", "sd_I", "sd_lphi", "sd_blp",
-#               'sd_beta', "bN")
+sm.params = c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
+              "mu_I", "I", "Beta", "IN", "AZadj", "sd_I", "sd_lphi",
+              'sd_beta', "bN", "bp_pass")
 
 # MCMC settings
-ni = 100
+ni = 10
 nt = 1
-nb = 50
-nc = 3
+nb = 5
+nc = 1
 
 
 # Call Stan from R 
 SM.c <- stan("Stan_Marginalized.stan",
              data = sm.data,
              pars = sm.params,
-             # control = list(max_treedepth = 14, adapt_delta = .925),
-             control = list(adapt_delta = .975),
+             control = list(max_treedepth = 14, adapt_delta = .85),
+             # control = list(adapt_delta = .975),
              chains = nc, iter = ni, thin = nt, seed = 1) 
 
 
