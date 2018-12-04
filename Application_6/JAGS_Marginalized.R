@@ -25,6 +25,7 @@ MR_data <- read.csv(paste0(getwd(), "/Data/", "bCH.csv"), header = FALSE)
 bNOc <- NO_catch[,1:3]
 NOpasses <- NO_catch$NOpasses
 seasNO <- NO_catch$seasNO
+spawn <- ifelse(seasNO == 1, 4, 3)
 bAZ <- AZGF_catch[,1:3]
 ts <- AZGF_catch$ts
 AZeff <- AZGF_catch$AZeff
@@ -109,7 +110,7 @@ model {
   
   # this loop calculates actual per pass pcaps for each trip and modifies based on # of passes  
   for(j in 1:23){
-    spawn[j] <- 3 + step(-1 * seasNO[j] + 1.1)  # change here to use 'spawn' input
+    # spawn[j] <- 3 + step(-1 * seasNO[j] + 1.1)  # change here to use 'spawn' input
     blp_pass[j,1] ~ dnorm(mu_blp[1], tau_blp)
     blp_pass[j,2] ~ dnorm(mu_blp[2], tau_blp)
     blp_pass[j,3] ~ dnorm(mu_blp[spawn[j]], tau_blp)
@@ -225,7 +226,8 @@ sink()
 #-----------------------------------------------------------------------------#
 BM_JM.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
                    seasNO = seasNO, bNOc = bNOc, NOpasses = NOpasses, ones = FR,
-                   FR = FR, last = last, bCH = bCH, NCH = NCH, sumf = sumf)
+                   FR = FR, last = last, bCH = bCH, NCH = NCH, sumf = sumf,
+                   spawn = spawn)
 
 BM_JM.par <- c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
              "mu_I", "I", "Beta", "IN", "AZadj", "sd_I", "sd_lphi",
@@ -234,7 +236,7 @@ BM_JM.par <- c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
 # BM_JM.par = c('blp_pass')
 
 ni <- 20000
-# ni <- 1000
+# ni <- 5000
 
 t1 <- proc.time()
 jags.fit <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "JAGS_Marginalized.jags",
@@ -247,7 +249,7 @@ t2 <- proc.time()
 library(foreach)
 library(doParallel)
 
-n.core = 3  # really n.core * 3
+n.core = 9  # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -258,11 +260,8 @@ cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
 all.t1 = proc.time()
 n.runs = 10
 
-# my.n.iter = c(10, 15)
-# my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = c(12000,14000,18000,20000)
-my.n.iter = c(11000,13000,15000,16000,17000,19000)
-# my.n.iter = c(20000)
+# my.n.iter = c(100, 100, 100)
+my.n.iter = seq(1000,21000,2000)
 
 big.fit.list = list()
 
@@ -289,15 +288,19 @@ out <- foreach(j = seeds) %:%
     
     my.env = environment()
     
-    JD.t <- jags.parallel(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Time.jags",
-                          n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-                          jags.seed = seed, envir = my.env) 
+    # JD.t <- jags.parallel(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Time.jags",
+    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
+    #                       jags.seed = seed, envir = my.env) 
+    
+    jags.fit <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "JAGS_Marginalized.jags",
+                              n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
+                              jags.seed = seed, envir = my.env)
     
     t2 <- proc.time()
     
-    attr(JD.t, 'time') <- (t2 - t1)[3]
+    attr(jags.fit, 'time') <- (t2 - t1)[3]
     
-    JD.t
+    jags.fit
     
   } 
 #--------------------------------------
@@ -319,11 +322,11 @@ length(all.out)
 
 # tmp = run.times(all.out)
 
-all.jags.d.time.3 = all.out
+all.jags.m = all.out
 
-rm(list=setdiff(ls(), "all.jags.d.time.3"))
+rm(list=setdiff(ls(), "all.jags.m"))
 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/JAGS_D_Time_3.RData")
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_6/working_Runs/JAGS_runs.RData")
 #-----------------------------------------------------------------------------#
 # end
 
