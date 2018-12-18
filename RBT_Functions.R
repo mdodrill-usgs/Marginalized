@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
-data.dir = paste0(getwd(), "/Data")
-
-CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
-                          header = FALSE, sep = "\t"))
+# fix this...
+# data.dir = paste0(getwd(), "/Data")
+# 
+# CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
+#                           header = FALSE, sep = "\t"))
 
 #-----------------------------------------------------------------------------#
 
