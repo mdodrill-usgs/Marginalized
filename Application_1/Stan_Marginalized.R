@@ -8,22 +8,24 @@
 #
 #  To do: 
 #  *  Clean up script...
+#  *  check to see if this is setting the core
+#     options(affinity.list = c(1,2,3,4))     
 #
 ###############################################################################
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())  
+
+source(paste0(getwd(),"/Functions.R"), chdir = F)
+
 setwd(paste0(getwd(), '/Application_1'))
 
-library(rstan)
-# library(arm)
-
-rstan_options(auto_write = TRUE)
-options(mc.cores = parallel::detectCores())   
-# check to see if this is setting the core
-# options(affinity.list = c(1,2,3,4))         
-
-source("RBT_Functions.R", chdir = F)
-
+data.dir = paste0(getwd(), "/Data")
+CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
+                          header = FALSE, sep = "\t"))
+#-----------------------------------------------------------------------------#
+# format data for model fitting
 tmpCH = collapse.ch(CH)[[1]]
-
 sumFR = collapse.ch(CH)[[2]]
 
 # Create vector with occasion of marking
@@ -295,7 +297,7 @@ q_plot(list("constant" = SM.c, "little t" = SM.t, "RE" = SM.re), par.name = "s")
 library(foreach)
 library(doParallel)
 
-n.core = 5 # really n.core * 3
+n.core = 8 # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -303,16 +305,16 @@ registerDoParallel(cl1)
 # make sure each cluster has the packages used 
 cllibs <- clusterEvalQ(cl1, c(library(rstan)))
 
-n.runs = 20
+n.runs = 10
 
 # nb = 50
 nt = 1
 nc = 3
 
 # my.n.iter = c(500, 550)
-# my.n.iter = seq(0,10000,500)[- 1]
+my.n.iter = seq(0,10000,500)[- 1]
 # my.n.iter = seq(5500,10000,500)
-my.n.iter = rep(2000,5)
+# my.n.iter = rep(2000,5)
 
 big.fit.list = list()
 
@@ -364,7 +366,8 @@ out <- foreach(j = seeds) %:%
     SM.t <- stan("Stan_Marginalized_Time.stan",
                  data = sm.data,
                  pars = sm.params,
-                 control = list(adapt_delta = .85),
+                 # control = list(adapt_delta = .85),
+                 control = list(adapt_enga),
                  # chains = nc, iter = iter.in, warmup = nb, thin = nt, seed = seed, cores = 3)
                  chains = nc, iter = iter.in, thin = nt, seed = seed, cores = 3)
     
@@ -402,4 +405,10 @@ rm(list=setdiff(ls(), c("all.stan.m.time")))
 
 
 
+windows()
 
+
+p = ggplot(tmp, aes(x = iterations, y = efficiency)) +
+    geom_point() +
+    geom_boxplot(aes(group = iterations), alpha = 1)
+p
