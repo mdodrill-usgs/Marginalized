@@ -10,11 +10,15 @@
 #  * 
 #
 ###############################################################################
-setwd(paste0(getwd(), '/Application_1'))
 library(R2jags)
+source(paste0(getwd(),"/Functions.R"), chdir = F)
 
-source("RBT_Functions.R", chdir = F)
+setwd(paste0(getwd(), '/Application_1'))
 
+data.dir = paste0(getwd(), "/Data")
+CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
+                          header = FALSE, sep = "\t"))
+#-----------------------------------------------------------------------------#
 # format data for model fitting
 Y = CH
 
@@ -92,7 +96,7 @@ print(JD.out, digits = 3)
 library(foreach)
 library(doParallel)
 
-n.core = 10  # really n.core * 3
+n.core = 3  # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -105,8 +109,9 @@ n.runs = 10
 
 # my.n.iter = c(10, 15)
 # my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = c(10000,15000,20000,25000,30000)
-my.n.iter = c(20000)
+# my.n.iter = c(12000,14000,18000,20000)
+my.n.iter = c(11000,13000,15000,16000,17000,19000)
+# my.n.iter = c(20000)
 
 big.fit.list = list()
 
@@ -161,10 +166,12 @@ length(out[[1]])
 all.out = do.call('c', out)
 length(all.out)
 
-tmp = run.times(all.out)
+# tmp = run.times(all.out)
 
-all.jags.d.time.1 = all.out
+all.jags.d.time.3 = all.out
 
-rm(list=setdiff(ls(), "all.jags.d.time.1"))
+# rm(list=setdiff(ls(), "all.jags.d.time.3"))
+
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/JAGS_D_Time_3.RData")
 #-----------------------------------------------------------------------------#
 # end
