@@ -12,8 +12,12 @@
 #  * 
 #
 ###############################################################################
+# fix this...
+source("U:/Desktop/Fish_Git/Marginalized/Application_1/RBT_Functions.R", chdir = F)
+
 setwd(paste0(getwd(), '/Application_6'))
 library(R2jags)
+
 
 #-----------------------------------------------------------------------------#
 # read in data
@@ -31,19 +35,24 @@ ts <- AZGF_catch$ts
 AZeff <- AZGF_catch$AZeff
 NAZsamps <- length(AZeff)
 
-findlast <- function(x){ifelse(x[24] == 1, 23, max(which(x[1:23] != 4)))}
-last <- apply(MR_data, 1, findlast)
+# capture-recapture data
+allCH <- MR_data[,1:23]
 
-bCH <- MR_data[,1:23]
+bCH = collapse.ch(allCH)[[1]]
+FR = collapse.ch(allCH)[[2]]
+
+findlast <- function(x){ifelse(x[23] == 1, 22, max(which(x[1:22] != 4)))}
+last <- apply(bCH, 1, findlast)
+
 NCH <- length(last)
-FR <- rep(1, NCH)
+# FR <- rep(1, NCH)    # remove
 findfirst <- function(x){which(x != 4)[1]}
 sumf <- apply(bCH, 1, findfirst)
 
 #-----------------------------------------------------------------------------#
 sink("JAGS_Marginalized.jags")
 cat("
-model {
+model{
   # lphi is the logit of survival and is given a prior based on the Lorenzen
   # function and the average mass of fish in each size class during each season.
   # variation from the priod mode is determined by an estimated variance
@@ -70,7 +79,7 @@ model {
     }
   }
   
-  bpsi2 ~ dunif(0,1) # growth os size class 2 fish into size class 3
+  bpsi2 ~ dunif(0,1) # growth of size class 2 fish into size class 3
   
   # define transition matrix that combines survival and growth parameters
   for(i in 1:4){
@@ -229,14 +238,14 @@ BM_JM.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
                    FR = FR, last = last, bCH = bCH, NCH = NCH, sumf = sumf,
                    spawn = spawn)
 
-BM_JM.par <- c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
-             "mu_I", "I", "Beta", "IN", "AZadj", "sd_I", "sd_lphi",
-             'sd_beta', "bN", "bp_pass")
+BM_JM.par <- c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', 'lbeta_0',
+             'mu_I', 'I', 'Beta', 'IN', 'AZadj', 'sd_I', 'sd_lphi',
+             'sd_beta', 'bN', 'bp_pass')
 
 # BM_JM.par = c('blp_pass')
 
-ni <- 20000
-# ni <- 5000
+# ni <- 20000
+ni <- 5000
 
 t1 <- proc.time()
 jags.fit <- jags.parallel(BM_JM.data, inits = NULL, BM_JM.par, "JAGS_Marginalized.jags",
@@ -249,7 +258,7 @@ t2 <- proc.time()
 library(foreach)
 library(doParallel)
 
-n.core = 9  # really n.core * 3
+n.core = 10  # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -258,10 +267,11 @@ registerDoParallel(cl1)
 cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
 
 all.t1 = proc.time()
-n.runs = 10
+n.runs = 2
 
 # my.n.iter = c(100, 100, 100)
-my.n.iter = seq(1000,21000,2000)
+# my.n.iter = seq(25000,50000,5000)
+my.n.iter = seq(120000,200000,20000)
 
 big.fit.list = list()
 
@@ -320,19 +330,12 @@ length(out[[1]])
 all.out = do.call('c', out)
 length(all.out)
 
-# tmp = run.times(all.out)
+tmp = run.times(all.out)
 
-all.jags.m = all.out
-
-rm(list=setdiff(ls(), "all.jags.m"))
-
-# save.image("U:/Desktop/Fish_Git/Marginalized/Application_6/working_Runs/JAGS_runs.RData")
+# all.jags.m.4 = all.out
+# 
+# rm(list=setdiff(ls(), "all.jags.m.4"))
+# 
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_6/working_Runs/JAGS_runs_4.RData")
 #-----------------------------------------------------------------------------#
 # end
-
-
-
-
-
-
-
