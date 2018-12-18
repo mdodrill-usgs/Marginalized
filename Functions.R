@@ -1,6 +1,8 @@
 ###############################################################################
-#                                                                        Feb 18
-#        Functions to process input data for model fitting of RBT data 
+#                                                                        Dec 18
+#  Functions to:
+#  1). process input data for model fitting 
+#  2). process/extract results
 #
 #  Notes:
 #  * 
@@ -17,7 +19,6 @@
 #                           header = FALSE, sep = "\t"))
 
 #-----------------------------------------------------------------------------#
-
 # Function to create the matrix of latent state z 
 known.state.cjs <- function(ch){
   state <- ch
@@ -55,7 +56,6 @@ cjs.init.z <- function(ch, f){
 # frequency of these unique histories. Returns a list: first element is the
 # collapsed capture histories, second element is the frequency.
 
-
 collapse.ch <- function(ch){
   ch.char = apply(ch, 1, function(x) paste(x, collapse = ","))
   
@@ -65,9 +65,7 @@ collapse.ch <- function(ch){
   return(list(ch.sum.out, fr.out))
 }
 
-
 # out = collapse.ch(ch)
-
 
 #-----------------------------------------------------------------------------#
 # Function to generate inits for z in JS model with data augmentation. From Kery
@@ -175,7 +173,7 @@ run.times = function(fit.list){
       
     }
     
-    if(class(fit.list[[i]]) == "bugs"){
+    if(any(class(fit.list[[i]]) == "bugs")){
       out[i,]$fitter = "bugs"
       
       # get the n.iter
