@@ -10,11 +10,16 @@
 #  * 
 #
 ###############################################################################
-setwd(paste0(getwd(), '/Application_1'))
 library(R2OpenBUGS)
+source(paste0(getwd(),"/Functions.R"), chdir = F)
 
-source("RBT_Functions.R", chdir = F)
+setwd(paste0(getwd(), '/Application_1'))
 
+data.dir = paste0(getwd(), "/Data")
+CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
+                          header = FALSE, sep = "\t"))
+#-----------------------------------------------------------------------------#
+# format data for model fitting
 tmpCH = collapse.ch(CH)[[1]]
 FR = collapse.ch(CH)[[2]]
 
