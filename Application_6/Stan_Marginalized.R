@@ -12,6 +12,9 @@
 #  * 
 #
 ###############################################################################
+# fix this...
+source("U:/Desktop/Fish_Git/Marginalized/Application_1/RBT_Functions.R", chdir = F)
+
 setwd(paste0(getwd(), '/Application_6'))
 library(rstan)
 
@@ -34,12 +37,16 @@ ts <- AZGF_catch$ts
 AZeff <- AZGF_catch$AZeff
 NAZsamps <- length(AZeff)
 
-findlast <- function(x){ifelse(x[24] == 1, 23, max(which(x[1:23] != 4)))}
-last <- apply(MR_data, 1, findlast)
+# capture-recapture data
+allCH <- MR_data[,1:23]
 
-bCH <- as.matrix(MR_data[,1:23])
+bCH = collapse.ch(allCH)[[1]]
+FR = collapse.ch(allCH)[[2]]
+
+findlast <- function(x){ifelse(x[23] == 1, 22, max(which(x[1:22] != 4)))}
+last <- apply(bCH, 1, findlast)
+
 NCH <- length(last)
-FR <- rep(1, NCH)
 findfirst <- function(x){which(x != 4)[1]}
 sumf <- apply(bCH, 1, findfirst)
 
@@ -72,15 +79,15 @@ sm.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
 #                "mu.I", "I", "Beta", "IN", "AZadj", "sd.I", "sd.lphi", "sd.blp",
 #                'sd.beta', "bN")
 
-sm.params = c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', "lbeta_0",
-              "mu_I", "I", "Beta", "IN", "AZadj", "sd_I", "sd_lphi",
-              'sd_beta', "bN", "bp_pass")
+sm.params = c('bphi', 'bpsi1', 'bpsi2', 'mu_blp', 'sd_blp', 'lbeta_0',
+              'mu_I', 'I', 'Beta', 'IN', 'AZadj', 'sd_I', 'sd_lphi',
+              'sd_beta', 'bN', 'bp_pass')
 
 # MCMC settings
-ni = 10
+ni = 1000
 nt = 1
-nb = 5
-nc = 1
+nb = 500
+nc = 3
 
 
 # Call Stan from R 
@@ -88,11 +95,11 @@ SM.c <- stan("Stan_Marginalized.stan",
              data = sm.data,
              pars = sm.params,
              control = list(max_treedepth = 14, adapt_delta = .85),
-             # control = list(adapt_delta = .975),
              chains = nc, iter = ni, thin = nt, seed = 1) 
 
+# stan.fit = SM.c
 
-
+# rm(list=setdiff(ls(), "stan.fit"))
 #-----------------------------------------------------------------------------#
 # library(shinystan)
 # 
