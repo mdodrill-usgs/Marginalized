@@ -131,3 +131,82 @@ JM_Cocc<- jags.parallel(JM_data, inits = JM_inits, params, 'Cocc_JM.jags',
                         n.chains = 3, n.iter=10)
 t2 <- proc.time()
 #-----------------------------------------------------------------------------#
+library(foreach)
+library(doParallel)
+
+n.core = 2  # really n.core * 3
+
+cl1 = makeCluster(n.core) # number of cores you want to use
+registerDoParallel(cl1)
+
+# make sure each cluster has the packages used 
+cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
+
+all.t1 = proc.time()
+n.runs = 2
+
+# my.n.iter = c(50000)
+my.n.iter = c(10)
+
+big.fit.list = list()
+
+seeds <- sample(1:1e5, size = n.runs)   
+
+# let all of the clusters have whatever objects are in the workspace
+clusterExport(cl = cl1, varlist = ls(), envir = environment())
+
+start.time <- Sys.time()  # start timer
+
+out = list()
+#--------------------------------------
+out <- foreach(j = seeds) %:% 
+  
+  foreach(i = my.n.iter) %dopar% {
+    
+    seed = j
+    seed = seed + sample(1:1e5, size = 1)
+    
+    iter.in = i
+    
+    t1 <- proc.time()
+    
+    my.env = environment()
+    
+    JM_Cocc<- jags.parallel(JM_data, inits = JM_inits,
+                            params, 'Cocc_JM.jags',
+                            n.chains = 3, n.iter = iter.in,
+                            export_obj_names = c("iter.in", "seed"),
+                            jags.seed = seed, envir = my.env)
+    
+    t2 <- proc.time()
+    
+    attr(JM_Cocc, 'time') <- (t2 - t1)[3]
+    
+    JM_Cocc
+    
+  } 
+#--------------------------------------
+
+end.time = Sys.time()
+time.taken = end.time - start.time
+print(round(time.taken,2))
+
+all.t2 = proc.time()
+stopCluster(cl1)  # close the clusters
+
+
+length(out)
+length(out[[1]])
+
+all.out = do.call('c', out)
+length(all.out)
+
+# tmp = run.times(all.out)
+
+# all.jags.d.time.3 = all.out
+
+# rm(list=setdiff(ls(), "all.jags.d.time.3"))
+
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/JAGS_D_Time_3.RData")
+#-----------------------------------------------------------------------------#
+# end
