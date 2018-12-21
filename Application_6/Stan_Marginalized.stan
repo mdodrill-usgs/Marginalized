@@ -44,7 +44,7 @@ transformed parameters{
   matrix[69,3] bN;                                                          
   vector[17] wA;
   vector[17] Beta;
-     
+  
   for(j in 1:3){  // remove for no prior version
     for(k in 1:4){
       bphi[j,k] = inv_logit(lphi[j,k]);
@@ -127,10 +127,11 @@ transformed parameters{
 }
   
 model{
-  real pz[NCH, 23, 4];                                    // dims correct here.....?
+  real pz[NCH, 23, 4];                                    
   matrix[NAZsamps, 3]bpAZ;
   matrix[NAZsamps, 3]blamAZ;
   matrix[23, 3]blamNO;
+  vector[4] temp;
   
   ///////////////////////////
   // lphi is the logit of survival and is given a prior based on the Lorenzen
@@ -166,22 +167,38 @@ model{
     blp_pass[j,3] ~ normal(mu_blp[spawn[j]], sd_blp);
    }
    
-   for(k in 1:NCH){
-    pz[k,sumf[k],1] = (1 == bCH[k,sumf[k]]);
-    pz[k,sumf[k],2] = (2 == bCH[k,sumf[k]]);
-    pz[k,sumf[k],3] = (3 == bCH[k,sumf[k]]);
-    pz[k,sumf[k],4] = 0;
-    
-    for(j in sumf[k]:(last[k] - 1)){
-      for(i in 1:4){
-        // pz[k,(j + 1),i] = inprod(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]]
-        pz[k,(j + 1),i] = dot_product(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]];  //write like HBC model, check this
-      }
-    }
-    
-    target += FR[k] * log(sum(pz[k,last[k],]));                            
-    
-  }
+  //  for(k in 1:NCH){
+  //   pz[k,sumf[k],1] = (1 == bCH[k,sumf[k]]);
+  //   pz[k,sumf[k],2] = (2 == bCH[k,sumf[k]]);
+  //   pz[k,sumf[k],3] = (3 == bCH[k,sumf[k]]);
+  //   pz[k,sumf[k],4] = 0;
+  //   
+  //   for(j in sumf[k]:(last[k] - 1)){
+  //     for(i in 1:4){
+  //       // pz[k,(j + 1),i] = inprod(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]]
+  //       // pz[k,(j + 1),i] = dot_product(pz[k,j,], btrans[,i,seasNO[(j + 1)]]) * bp[j,i,bCH[k,(j + 1)]];  //write like HBC model, check this
+  //     }
+  //   }
+  //   
+  //   target += FR[k] * log(sum(pz[k,last[k],]));                            
+  //   
+  // }
+  
+  for(k in 1:NCH){
+		pz[k,sumf[k],1] = (1 == bCH[k,sumf[k]]);
+		pz[k,sumf[k],2] = (2 == bCH[k,sumf[k]]);
+		pz[k,sumf[k],3] = (3 == bCH[k,sumf[k]]);
+		pz[k,sumf[k],4] = 0;
+		for(t in sumf[k]:(last[k] - 1)){
+			for(i in 1:4){
+				for(j in 1:4){
+					temp[j] = pz[k,t,j] * btrans[j,i,seasNO[(t + 1)]] * bp[t,i,bCH[k,(t + 1)]];
+					}
+				pz[k,(t + 1),i] = sum(temp);
+				}
+			}
+		target += FR[k] * log(sum(pz[k,last[k],]));                             
+		}
   
   //////////////////////////
   // (done above in transformed) calculate offset for each size classes of AZGF effort and calculate expected pcap
