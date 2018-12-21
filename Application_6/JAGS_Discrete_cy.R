@@ -272,7 +272,6 @@ jags.fit <- jags.parallel(BM_JM.data, inits = init, BM_JM.par, "JAGS_Discrete.ja
 # t2 <- proc.time()
 #-----------------------------------------------------------------------------#
 
-init <- list(pz = initator(indCH))
 
 jags.fit <- jags(BM_JM.data, inits = init, BM_JM.par, "JAGS_Discrete.jags",
                           n.chains = 1, n.iter = ni)
