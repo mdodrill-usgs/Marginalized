@@ -12,11 +12,11 @@
 #  * 
 #
 ###############################################################################
-# fix this...
-source("U:/Desktop/Fish_Git/Marginalized/Application_1/RBT_Functions.R", chdir = F)
+library(R2jags)
+
+source(paste0(getwd(),"/Functions.R"), chdir = F)
 
 setwd(paste0(getwd(), '/Application_6'))
-library(R2jags)
 
 
 #-----------------------------------------------------------------------------#
@@ -45,7 +45,6 @@ findlast <- function(x){ifelse(x[23] == 1, 22, max(which(x[1:22] != 4)))}
 last <- apply(bCH, 1, findlast)
 
 NCH <- length(last)
-# FR <- rep(1, NCH)    # remove
 findfirst <- function(x){which(x != 4)[1]}
 sumf <- apply(bCH, 1, findfirst)
 
@@ -155,7 +154,7 @@ model{
     }
     
     ll[k] <- sum(pz[k, last[k],])
-    one[k] ~ dbin(ll[k], FR[k])
+    ones[k] ~ dbin(ll[k], FR[k])
   }
   
   # calculate offset for each size classes of AZGF effort and calculate expected pcap
@@ -235,6 +234,7 @@ sink()
 #-----------------------------------------------------------------------------#
 BM_JM.data <- list(NAZsamps = NAZsamps, ts = ts, AZeff = AZeff, bAZ = bAZ,
                    seasNO = seasNO, bNOc = bNOc, NOpasses = NOpasses, ones = FR,
+                   # seasNO = seasNO, bNOc = bNOc, NOpasses = NOpasses,
                    FR = FR, last = last, bCH = bCH, NCH = NCH, sumf = sumf,
                    spawn = spawn)
 
