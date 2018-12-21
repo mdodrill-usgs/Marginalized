@@ -12,14 +12,13 @@
 #  * 
 #
 ###############################################################################
-# fix this...
-source("U:/Desktop/Fish_Git/Marginalized/Application_1/RBT_Functions.R", chdir = F)
-
-setwd(paste0(getwd(), '/Application_6'))
 library(rstan)
-
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores()) 
+
+source(paste0(getwd(),"/Functions.R"), chdir = F)
+
+setwd(paste0(getwd(), '/Application_6'))
 
 #-----------------------------------------------------------------------------#
 # read in data
