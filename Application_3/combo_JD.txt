@@ -1,0 +1,31 @@
+model {
+	for(i in 1:nSites) {N[i,1] ~ dpois(lambda)}	
+	for(t in 1:(nYears-1)) {
+		N_mean[t] <- mean(N[,t]) - 1
+		log(gamma[t]) <- g0 + g1*N_mean[t] + g2*N_mean[t]*N_mean[t]
+		for(i in 1:nSites) {
+			logit(omega[i,t]) <- b0 + b1*X[i,t]
+			S[i,t] ~ dbin(omega[i,t], N[i,t])
+			G[i,t] ~ dpois(gamma[t])
+			N[i,(t+1)] <- S[i,t] + G[i,t] 
+			}}
+	for(i in 1:nSites) {
+		for (t in 1:20){
+			p_site[i,t] <- 1-pow((1-p_occ),N[i,t]) 
+			num_det[i,t] ~ dbin(p_site[i,t],num_trial[i,t])
+			}
+		for (t in 1:2){
+			for (k in 1:3){
+				cloglog(tpc[i,(3*(t-1)+k)]) <- a0 + OV[i,(3*(t-1)+k)]
+				pc[i,(3*(t-1)+k)]<-tpc[i,(3*(t-1)+k)]*visited[i,(3*(t-1)+k)]
+				Y[i,(3*(t-1)+k)]~dbin(pc[i,(3*(t-1)+k)],N[i,(t+20)])
+				}}}
+	lambda ~ dunif(0,1) # initial abundance
+	p_occ ~ dunif(0,1) # detection
+	b0 ~ dunif(-3,3) # intercept on survival
+	b1 ~ dunif(-1,1) # slope on survival
+	a0 ~ dunif(-3,3) # intercept on effort (p_count)
+	g0 ~ dunif(-3,3) # intercept on gamma
+	g1 ~ dunif(-1,1) # slope on mean(N)
+	g2 ~ dunif(-1,1) # squared term on mean(N)
+	}
