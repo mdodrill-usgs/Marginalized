@@ -12,12 +12,6 @@
 #
 ###############################################################################
 
-# fix this...
-# data.dir = paste0(getwd(), "/Data")
-# 
-# CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
-#                           header = FALSE, sep = "\t"))
-
 #-----------------------------------------------------------------------------#
 # Function to create the matrix of latent state z 
 known.state.cjs <- function(ch){
@@ -72,25 +66,25 @@ collapse.ch <- function(ch){
 # and Schaub 2012
 
 js.multistate.init <- function(ch, nz){
-  ch[ch==2] <- NA
+  ch[ch == 2] <- NA
   state <- ch
   for (i in 1:nrow(ch)){
-    n1 <- min(which(ch[i,]==1))
-    n2 <- max(which(ch[i,]==1))
+    n1 <- min(which(ch[i,] == 1))
+    n2 <- max(which(ch[i,] == 1))
     state[i,n1:n2] <- 2
   }
-  state[state==0] <- NA
+  state[state == 0] <- NA
   get.first <- function(x) min(which(!is.na(x)))
   get.last <- function(x) max(which(!is.na(x)))   
   f <- apply(state, 1, get.first)
   l <- apply(state, 1, get.last)
   for (i in 1:nrow(ch)){
     state[i,1:f[i]] <- 1
-    if(l[i]!=ncol(ch)) state[i, (l[i]+1):ncol(ch)] <- 3
+    if(l[i] != ncol(ch)) state[i, (l[i] + 1):ncol(ch)] <- 3
     state[i, f[i]] <- 2
   }   
   state <- rbind(state, matrix(1, ncol = ncol(ch), nrow = nz))
-  # change with the book code! Need first col to be NA !
+  # change with the book code -- Need first col to be NA !
   state[,1] <- NA  
   return(state)
 }
@@ -107,7 +101,9 @@ run.times = function(fit.list){
   out = data.frame(fitter = NA,
                    iterations = NA,
                    min.n.eff = NA,
-                   min.n.eff.2 = NA,
+                   min.n.eff.coda = NA,
+                   med.n.eff = NA,
+                   med.n.eff.coda = NA,
                    run.time = NA,
                    model = NA,
                    r.hat.count = NA)
@@ -125,12 +121,17 @@ run.times = function(fit.list){
       # get the n.eff
       n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
       
-      n.eff.2 = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+      n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
       
       # minus 1 to cut out the likelihood value (only n.eff for parms)
       out[i,]$min.n.eff = min(n.eff[1:(length(n.eff) - 1)])
       
-      out[i,]$min.n.eff.2 = min(n.eff.2[2:length(n.eff.2)])  # deviance is first here
+      out[i,]$min.n.eff.coda = min(n.eff.coda[2:length(n.eff.coda)])  # deviance is first here
+      
+      # median n.eff
+      out[i,]$med.n.eff = median(n.eff[1:(length(n.eff) - 1)])
+      
+      out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])  # deviance is first here
       
       # print(get_elapsed_time(fit))
       # time = get_elapsed_time(fit.list[[i]])
@@ -156,12 +157,17 @@ run.times = function(fit.list){
       # get the n.eff
       n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
       
-      n.eff.2 = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+      n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
       
-      # cut out the deviance value (only n.eff for parms)
+      # min n.eff - cut out the deviance value (only n.eff for parms)
       out[i,]$min.n.eff = min(n.eff[2:length(n.eff)])
       
-      out[i,]$min.n.eff.2 = min(n.eff.2[2:length(n.eff.2)])
+      out[i,]$min.n.eff.coda = min(n.eff.coda[2:length(n.eff.coda)])
+      
+      # median n, eff - cut out the deviance value (only n.eff for parms)
+      out[i,]$med.n.eff = median(n.eff[2:length(n.eff)])
+      
+      out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])
       
       # model name
       out[i,]$model = fit.list[[i]]$model.file
@@ -184,12 +190,17 @@ run.times = function(fit.list){
       
       f1 = coda::mcmc.list(lapply(1:fit.list[[i]]$n.chain, function(x) coda::mcmc(fit.list[[i]]$sims.array[,x,])))
       
-      n.eff.2 = coda::effectiveSize(f1)
+      n.eff.coda = coda::effectiveSize(f1)
       
-      # cut out the deviance value (only n.eff for parms), different than JAGS, deviance is at the end
+      # min n.eff - cut out the deviance value (only n.eff for parms), different than JAGS, deviance is at the end
       out[i,]$min.n.eff = min(n.eff[1:length(n.eff)-1])
       
-      out[i,]$min.n.eff.2 = min(n.eff.2[1:length(n.eff.2)-1])
+      out[i,]$min.n.eff.coda = min(n.eff.coda[1:length(n.eff.coda)-1])
+      
+      # median n.eff
+      out[i,]$med.n.eff = median(n.eff[1:length(n.eff)-1])
+      
+      out[i,]$med.n.eff.coda = median(n.eff.coda[1:length(n.eff.coda)-1])
       
       # model name
       out[i,]$model = fit.list[[i]]$model.file
@@ -206,7 +217,7 @@ run.times = function(fit.list){
   }
   
   # out$efficiency = out$min.n.eff / out$run.time  
-  out$efficiency = out$min.n.eff.2 / out$run.time  
+  out$efficiency = out$min.n.eff.coda / out$run.time  
   
   return(out)
 }
@@ -371,6 +382,10 @@ organize = function(fit, par.name, mcmc.out = FALSE){
 
 # organize(JD.out, par.name = "p")
 # organize(SM.c, par.name = "p")
+
+#-----------------------------------------------------------------------------#
+
+
 
 
 ###############################################################################
