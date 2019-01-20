@@ -96,7 +96,13 @@ js.multistate.init <- function(ch, nz){
 
 # require packages for this....
 
-run.times = function(fit.list){
+# added 'ignore' argument, for parms that are set, but your still tracking, but
+# want to exclude from the summary (see BNT model). Only for Stan and JAGS. 
+
+
+run.times = function(fit.list, ignore = NULL){
+  
+  # ignore = c("IN[1]", "bN[1,1]")
   
   out = data.frame(fitter = NA,
                    iterations = NA,
@@ -118,10 +124,25 @@ run.times = function(fit.list){
       # get the n.iter
       out[i,]$iterations = fit.list[[i]]@stan_args[[1]]$iter
       
-      # get the n.eff
-      n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
-      
-      n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+      if(is.null(ignore) == FALSE){
+        # get the n.eff
+        tmp.n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
+        n.eff = tmp.n.eff[which(!names(tmp.n.eff) %in% ignore)]
+        
+        tmp.n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        n.eff.coda = tmp.n.eff.coda[which(!names(tmp.n.eff.coda) %in% ignore)]
+        
+        # count of Rhat over 1.1 (this includes the like/deviance)
+        tmp.tmp.r.hat = rstan::summary(fit.list[[i]])$summary[,"Rhat"]
+        tmp.r.hat = tmp.tmp.r.hat[which(!names(tmp.tmp.r.hat) %in% ignore)]
+      } else {
+        # get the n.eff
+        n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
+        n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        
+        # count of Rhat over 1.1 (this includes the like/deviance)
+        tmp.r.hat = rstan::summary(fit.list[[i]])$summary[,"Rhat"]
+      }
       
       # minus 1 to cut out the likelihood value (only n.eff for parms)
       out[i,]$min.n.eff = min(n.eff[1:(length(n.eff) - 1)])
@@ -141,23 +162,39 @@ run.times = function(fit.list){
       # model name
       out[i,]$model = fit.list[[i]]@model_name
       
-      # count of Rhat over 1.1 (this includes the like/deviance)
-      tmp.r.hat = rstan::summary(fit.list[[i]])$summary[,"Rhat"]
-      
       out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
       
     }
     
-    if(any(class(fit.list[[i]]) == "rjags")){  # had to add 'any' b/c jags in parallel has two classes, one of which will be 'rjags'
+    # had to add 'any' b/c jags in parallel has two classes, one of which will be 'rjags'
+    if(any(class(fit.list[[i]]) == "rjags")){  
       out[i,]$fitter = "JAGS"
       
       # get the n.iter
       out[i,]$iterations = fit.list[[i]]$n.iter
       
-      # get the n.eff
-      n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
-      
-      n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+      if(is.null(ignore) == FALSE){
+        # get the n.eff
+        tmp.n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
+        # n.eff = tmp.n.eff[which(names(tmp.n.eff) != ignore)]
+        n.eff = tmp.n.eff[which(!names(tmp.n.eff) %in% ignore)]
+        
+        tmp.n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        # n.eff.coda = tmp.n.eff.coda[which(names(tmp.n.eff.coda) != ignore)]
+        n.eff.coda = tmp.n.eff.coda[which(!names(tmp.n.eff.coda) %in% ignore)]
+        
+        # count of Rhat over 1.1  (this includes the like/deviance)
+        tmp.tmp.r.hat = fit.list[[i]]$BUGSoutput$summary[,8]
+        # tmp.r.hat = tmp.tmp.r.hat[which(names(tmp.tmp.r.hat) != ignore)]
+        tmp.r.hat = tmp.tmp.r.hat[which(!names(tmp.tmp.r.hat) %in% ignore)]
+      } else {
+        # get the n.eff
+        n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
+        n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        
+        # count of Rhat over 1.1  (this includes the like/deviance)
+        tmp.r.hat = fit.list[[i]]$BUGSoutput$summary[,8]
+      }
       
       # min n.eff - cut out the deviance value (only n.eff for parms)
       out[i,]$min.n.eff = min(n.eff[2:length(n.eff)])
@@ -169,14 +206,10 @@ run.times = function(fit.list){
       
       out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])
       
-      # model name
-      out[i,]$model = fit.list[[i]]$model.file
-      
-      # count of Rhat over 1.1  (this includes the like/deviance)
-      tmp.r.hat = fit.list[[i]]$BUGSoutput$summary[,8]
-      
       out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
       
+      # model name
+      out[i,]$model = fit.list[[i]]$model.file
     }
     
     if(any(class(fit.list[[i]]) == "bugs")){
@@ -221,6 +254,131 @@ run.times = function(fit.list){
   
   return(out)
 }
+# run.times = function(fit.list){
+#   
+#   out = data.frame(fitter = NA,
+#                    iterations = NA,
+#                    min.n.eff = NA,
+#                    min.n.eff.coda = NA,
+#                    med.n.eff = NA,
+#                    med.n.eff.coda = NA,
+#                    run.time = NA,
+#                    model = NA,
+#                    r.hat.count = NA)
+#   
+#   
+#   for(i in seq_along(fit.list)){
+#     
+#     if(any(class(fit.list[[i]]) == "stanfit")){
+#       
+#       out[i,]$fitter = "Stan"
+#       
+#       # get the n.iter
+#       out[i,]$iterations = fit.list[[i]]@stan_args[[1]]$iter
+#       
+#       # get the n.eff
+#       n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
+#       
+#       n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+#       
+#       # minus 1 to cut out the likelihood value (only n.eff for parms)
+#       out[i,]$min.n.eff = min(n.eff[1:(length(n.eff) - 1)])
+#       
+#       out[i,]$min.n.eff.coda = min(n.eff.coda[2:length(n.eff.coda)])  # deviance is first here
+#       
+#       # median n.eff
+#       out[i,]$med.n.eff = median(n.eff[1:(length(n.eff) - 1)])
+#       
+#       out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])  # deviance is first here
+#       
+#       # print(get_elapsed_time(fit))
+#       # time = get_elapsed_time(fit.list[[i]])
+#       # out[i,]$run.time = max(time[,1] + time[,2])     # this is different than the system time
+#       # out[i,]$run.time = attr(fit.list[[i]], "time")  # this doesn't have to be fitter specific, moved below
+#       
+#       # model name
+#       out[i,]$model = fit.list[[i]]@model_name
+#       
+#       # count of Rhat over 1.1 (this includes the like/deviance)
+#       tmp.r.hat = rstan::summary(fit.list[[i]])$summary[,"Rhat"]
+#       
+#       out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+#       
+#     }
+#     
+#     if(any(class(fit.list[[i]]) == "rjags")){  # had to add 'any' b/c jags in parallel has two classes, one of which will be 'rjags'
+#       out[i,]$fitter = "JAGS"
+#       
+#       # get the n.iter
+#       out[i,]$iterations = fit.list[[i]]$n.iter
+#       
+#       # get the n.eff
+#       n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
+#       
+#       n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+#       
+#       # min n.eff - cut out the deviance value (only n.eff for parms)
+#       out[i,]$min.n.eff = min(n.eff[2:length(n.eff)])
+#       
+#       out[i,]$min.n.eff.coda = min(n.eff.coda[2:length(n.eff.coda)])
+#       
+#       # median n, eff - cut out the deviance value (only n.eff for parms)
+#       out[i,]$med.n.eff = median(n.eff[2:length(n.eff)])
+#       
+#       out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])
+#       
+#       # model name
+#       out[i,]$model = fit.list[[i]]$model.file
+#       
+#       # count of Rhat over 1.1  (this includes the like/deviance)
+#       tmp.r.hat = fit.list[[i]]$BUGSoutput$summary[,8]
+#       
+#       out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+#       
+#     }
+#     
+#     if(any(class(fit.list[[i]]) == "bugs")){
+#       out[i,]$fitter = "bugs"
+#       
+#       # get the n.iter
+#       out[i,]$iterations = fit.list[[i]]$n.iter
+#       
+#       # get the n.eff
+#       n.eff = fit.list[[i]]$summary[,9]
+#       
+#       f1 = coda::mcmc.list(lapply(1:fit.list[[i]]$n.chain, function(x) coda::mcmc(fit.list[[i]]$sims.array[,x,])))
+#       
+#       n.eff.coda = coda::effectiveSize(f1)
+#       
+#       # min n.eff - cut out the deviance value (only n.eff for parms), different than JAGS, deviance is at the end
+#       out[i,]$min.n.eff = min(n.eff[1:length(n.eff)-1])
+#       
+#       out[i,]$min.n.eff.coda = min(n.eff.coda[1:length(n.eff.coda)-1])
+#       
+#       # median n.eff
+#       out[i,]$med.n.eff = median(n.eff[1:length(n.eff)-1])
+#       
+#       out[i,]$med.n.eff.coda = median(n.eff.coda[1:length(n.eff.coda)-1])
+#       
+#       # model name
+#       out[i,]$model = fit.list[[i]]$model.file
+#       
+#       # count of Rhat over 1.1  (this includes the like/deviance)
+#       tmp.r.hat = fit.list[[i]]$summary[,8]
+#       
+#       out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+#       
+#     }
+#     
+#     # get time to fit model, stored as an attribute
+#     out[i,]$run.time = ifelse(is.null(attr(fit.list[[i]], "time")), "NA", attr(fit.list[[i]], "time")) 
+#   }
+#   
+#   # out$efficiency = out$min.n.eff / out$run.time  
+#   out$efficiency = out$min.n.eff.coda / out$run.time  
+#   
+#   return(out)
+# }
 
 # run.times(fit.list)
 
