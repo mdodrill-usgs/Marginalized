@@ -543,6 +543,36 @@ organize = function(fit, par.name, mcmc.out = FALSE){
 
 #-----------------------------------------------------------------------------#
 
+to.cy.format <- function(dat.in) {
+  
+  dat.out = as.data.frame(matrix(ncol = 9, nrow = nrow(dat.in)))
+  names(dat.out) = c("program",
+                     "marginalized",
+                     "run", 
+                     "iterations",
+                     "time",
+                     "min(n.eff)", 
+                     "median(n.eff)",
+                     "min(n.eff).coda",
+                     "median(n.eff).coda")
+  
+  dat.out$program = dat.in$fitter
+  
+  # figure this out...
+  # dat.out$marginalized = ifelse(grepl("Marginalized", dat.in$med.n.eff))
+  
+  dat.out$run = c(1:nrow(dat.in))
+  dat.out$iterations = dat.in$iterations
+  dat.out$time = dat.in$run.time
+  dat.out$`min(n.eff)` = dat.in$min.n.eff
+  dat.out$`median(n.eff)` = dat.in$med.n.eff
+  dat.out$`min(n.eff).coda` = dat.in$min.n.eff.coda
+  dat.out$`median(n.eff).coda` = dat.in$med.n.eff.coda
+  
+  return(dat.out)
+}
+#-----------------------------------------------------------------------------#
+
 
 
 
