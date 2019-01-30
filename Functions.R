@@ -251,9 +251,13 @@ run.times = function(fit.list, ignore = NULL){
   
   # out$efficiency = out$min.n.eff / out$run.time  
   out$efficiency = out$min.n.eff.coda / out$run.time  
+  # time required for min n.eff (coda) of 100
+  out$time.to.100 = (out$run.time / out$min.n.eff.coda) * 100
   
   return(out)
 }
+
+
 # run.times = function(fit.list){
 #   
 #   out = data.frame(fitter = NA,
@@ -545,8 +549,9 @@ organize = function(fit, par.name, mcmc.out = FALSE){
 
 to.cy.format <- function(dat.in) {
   
-  dat.out = as.data.frame(matrix(ncol = 9, nrow = nrow(dat.in)))
+  dat.out = as.data.frame(matrix(ncol = 13, nrow = nrow(dat.in)))
   names(dat.out) = c("program",
+                     "model",
                      "marginalized",
                      "run", 
                      "iterations",
@@ -554,9 +559,13 @@ to.cy.format <- function(dat.in) {
                      "min(n.eff)", 
                      "median(n.eff)",
                      "min(n.eff).coda",
-                     "median(n.eff).coda")
+                     "median(n.eff).coda",
+                     "r.hat.count",
+                     "efficiency",
+                     "time.to.100")
   
   dat.out$program = dat.in$fitter
+  dat.out$model = dat.in$model
   
   # figure this out...
   # dat.out$marginalized = ifelse(grepl("Marginalized", dat.in$med.n.eff))
@@ -568,6 +577,9 @@ to.cy.format <- function(dat.in) {
   dat.out$`median(n.eff)` = dat.in$med.n.eff
   dat.out$`min(n.eff).coda` = dat.in$min.n.eff.coda
   dat.out$`median(n.eff).coda` = dat.in$med.n.eff.coda
+  dat.out$r.hat.count = dat.in$r.hat.count
+  dat.out$efficiency = dat.in$efficiency
+  dat.out$time.to.100 = dat.in$time.to.100
   
   return(dat.out)
 }
