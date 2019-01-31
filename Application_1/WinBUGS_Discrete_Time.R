@@ -12,6 +12,7 @@
 #
 ###############################################################################
 library(R2WinBUGS)
+setwd("U:/Desktop/Fish_Git/Marginalized")
 source(paste0(getwd(),"/Functions.R"), chdir = F)
 
 setwd(paste0(getwd(), '/Application_1'))
@@ -105,7 +106,8 @@ print(JD.out, digits = 3)
 library(foreach)
 library(doParallel)
 
-n.core = 10
+Sys.time()
+n.core = 5
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -117,8 +119,8 @@ all.t1 = proc.time()
 n.runs = 10
 
 # my.n.iter = c(10, 15)
-# my.n.iter = seq(0,10000,500)[- 1]
-my.n.iter = seq(11000,20000,1000)
+my.n.iter = seq(0,10000,1000)[- 1]
+# my.n.iter = seq(11000,20000,1000)
 # my.n.iter = rep(500, 1)
 
 # my.n.iter = my.n.iter[1]
@@ -192,10 +194,10 @@ length(all.out)
 
 # tmp = run.times(all.out)
 
-all.bugs.d.time.3 = all.out
+all.bugs.d.time.4 = all.out
 
-rm(list=setdiff(ls(), "all.bugs.d.time.3"))
+rm(list=setdiff(ls(), "all.bugs.d.time.4"))
 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_D_Time_3.RData")
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_D_Time_4.RData")
 
 #-----------------------------------------------------------------------------#
