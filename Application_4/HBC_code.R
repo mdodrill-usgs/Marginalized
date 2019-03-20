@@ -1,7 +1,8 @@
-
-################################
-################################
-#GENERAL NOTES
+###############################################################################
+#              Multi-state Capture-Recapture model (Humpback Chub)
+#
+#                               GENERAL NOTES
+#
 #Note that CH's are formatted so that each row only has the release and subsequent capture information
 #
 #	Thus, a CH that is normally : 1 0 1 1 0 0  
@@ -25,25 +26,37 @@
 #		Fish are not allowed to shrink (from large to small adults)
 #
 
+###############################################################################
+#              Multi-state Capture-Recapture model (Humpback Chub)
 #
-#		
+#                               JAGS Discrete Version
 #
-#
-#  FUNCTIONS:
-#	Get first capture occasion:
-		find.first<-function(x){min(which(x!=5))}
-#
-#	Get last capture occasion:
-		find.last<-function(x){ifelse(length(which(x!=5))==1,27,max(which(x!=5)))}
 
-#  IMPORT DATA:
+library(R2jags)
+
+#Get data:
 dat<-read.csv(".//HBC_data.csv")
+
+
+
+#-----------------------------------------------------------------------------#
+#  Functions:
+
+#	Get first capture occasion:
+find.first<-function(x){min(which(x!=5))}
+
+#	Get last capture occasion:
+find.last<-function(x){ifelse(length(which(x!=5))==1,27,max(which(x!=5)))}
+
+
+#-----------------------------------------------------------------------------#
+# format data for model fitting:
 sumCH<-dat[,1:27]
 sumFR<-dat[,28]
 newtag.AO<-dat[,29]
- 
-#  OTHER:
-season<-(rep(1:3,8),1:2) #season index
+
+# other data:
+season<-c(rep(1:3,8),1:2) #season index
 LCRs<-c(2,3,5,6,8,9,11:26)
 LCRns<-c(1,4,7,10)
 CRs<-c(1,2,4,5,7:26)
@@ -54,11 +67,39 @@ catch<-matrix(c( 287,  545,  221,  594,  215,  413,  500,  374,  562,
 		 35,   86,   126,   41,   43,   59,   22,   26,   34), nrow=4, byrow=TRUE)
 
 
-######################################################################
-## OpenBUGS-Discrete
+#Re-format CH so that lines correspond to individuals (not unique capture histories):
+indCH<-numeric()
+for(i in 1:length(sumCH[,1])){for(j in 1:sumFR[i]){indCH<-rbind(indCH, sumCH[i,])}}
+indCH<-as.matrix(indCH)
+indf<-apply(indCH,1,find.first)
+indl<-apply(indCH,1,find.last)
+
+#Create CH data matrix where state is known when fish is captured, otherwise NA:
+known.state<-indCH
+known.state[indCH==5]<-NA
+known.state[,1]<-NA
+for(i in 1:dim(indCH)[1]){known.state[i,indf[i]]<-NA}
+
+#Create initial values for z-states (indicates whether fish is a small adult in LCR (1), a large adult in LCR (2), a small adult in CR (3), or a large adult in CR (4)
+#Note code does not allow fish to shrink, so initial values for z-states must also not allow for shrinking
+z.init<-matrix(NA,nrow=dim(indCH)[1],ncol=27)
+for (j in 1:dim(indCH)[1]){
+  z.init[j,(indf[j]+1)]<-ifelse(indCH[j,(indf[j]+1)]<5,NA,indCH[j,indf[j]])
+  if(indf[j]<26 & (indl[j]-indf[j])>1){
+    for (i in (indf[j]+2):indl[j]){
+      size<-c(1,2,1,2,NA)
+      sizemax<-max(size[indCH[j,indf[j]:i]],na.rm=TRUE)
+      if(sizemax==1){x<-c(1,3)}
+      if(sizemax==2){x<-c(2,4)}
+      z.init[j,i]<-ifelse(indCH[j,i]<5,NA,sample(x,1))}}
+}
 
 
-sink("chub_JD.txt")
+
+#-----------------------------------------------------------------------------#
+
+
+sink("JAGS_Discrete_chub.txt")
 cat("
 
 model {
@@ -125,6 +166,12 @@ for (i in 1:3){
 	for (j in 1:6){tr[7,i,j]<-0}
 	tr[7,i,7]<-1
 	}	
+
+#p is the matrix describing capture probabilities
+#Diagonal values represent capture probabilities for the four states
+#The fifth column represents the probability a fish is not captured
+#Note that for fish in states 5-6 (unobserveable sites in the CR that are not sampled)
+#and for state 7 (dead state) the probability a fish is unobserved is 100%
 
 for (i in 1:22){
 	p[1,LCRs[i],1]~dunif(0,1)
@@ -193,47 +240,73 @@ for(k in 1:NindCH){
 ",fill=TRUE)
 sink() 
 
-indCH<-numeric()
-
-#Re-format CH so that lines correspond to individuals (not unique capture histories):
-for(i in 1:length(CHseason[,1])){for(j in 1:FRseason[i]){indCH<-rbind(indCH, CHseason[i,])}}
-indf<-apply(indCH,1,find.first)
-indl<-apply(indCH,1,find.last)
-
-#Create CH data matrix where state is known when fish is captured, otherwise NA:
-known.state<-indCH
-known.state[indCH==5]<-NA
-known.state[,1]<-NA
-for(i in 1:dim(indCH)[1]){known.state[i,indf[i]]<-NA}
-
-#Create initial values for z-states (indicates whether fish is a small adult in LCR (1), a large adult in LCR (2), a small adult in CR (3), or a large adult in CR (4)
-#Note code does not allow fish to shrink, so initial values for z-states must also not allow for shrinking
-z.init<-matrix(NA,nrow=dim(indCH)[1],ncol=27)
-for (j in 1:dim(indCH)[1]){
-	z.init[j,(indf[j]+1)]<-ifelse(indCH[j,(indf[j]+1)]<5,NA,indCH[j,indf[j]])
-	if(indf[j]<26 & (indl[j]-indf[j])>1){
-		for (i in (indf[j]+2):indl[j]){
-		size<-c(1,2,1,2)
-		sizemax<-max(size[indCH[j,indf[j]:i]],na.rm=TRUE)
-		if(sizemax==1){x<-c(1,3)}
-		if(sizemax==2){x<-c(2,4)}
-		z.init[j,i]<-ifelse(indCH[j,i]<5,NA,sample(x,1))}}
-	}
-
+#-----------------------------------------------------------------------------#
+#Run JAGS model:
 
 JD.data<-list (LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns,season=season,NindCH=dim(indCH)[1],indCH=indCH,indf=indf,indl=indl, z=known.state)
+
 JD.par<-c('s_i','g','m', 'tau')
+
 JD.inits<-function(){list(s_i=c(.7,.7,.7,.7),z=array(z.init,dim=c(dim(indCH)[1],27)))}
-require("R2jags")
-JD.out<- jags.parallel(JD.data,inits=JD.inits,JD.par,".\\chub_JD.txt",n.chains = 3,n.iter=1000, export_obj_names="z.init")
+
+JD.out<- jags.parallel(JD.data,inits=JD.inits,JD.par,".\\JAGS_Discrete_chub.txt",n.chains = 1,n.iter=10, export_obj_names="z.init")
 
 
-######################################################################
-# JAGS-Marginalized
 
-# Unlike the discrete model, here rows in the capture history matrix correspond to unique capture histories, not individuals
+###############################################################################
+#              Multi-state Capture-Recapture model (Humpback Chub)
+#
+#                               JAGS Marginalized Version
+#
 
-sink("chub_JM.txt")
+library(R2jags)
+
+#Get data:
+dat<-read.csv(".//HBC_data.csv")
+
+
+
+#-----------------------------------------------------------------------------#
+#  Functions:
+
+#	Get first capture occasion:
+find.first<-function(x){min(which(x!=5))}
+
+#	Get last capture occasion:
+find.last<-function(x){ifelse(length(which(x!=5))==1,27,max(which(x!=5)))}
+
+
+#-----------------------------------------------------------------------------#
+# format data for model fitting:
+sumCH<-as.matrix(dat[,1:27])
+sumFR<-dat[,28]
+newtag.AO<-dat[,29]
+
+# other data:
+season<-c(rep(1:3,8),1:2) #season index
+LCRs<-c(2,3,5,6,8,9,11:26)
+LCRns<-c(1,4,7,10)
+CRs<-c(1,2,4,5,7:26)
+CRns<-c(3,6)
+catch<-matrix(c( 287,  545,  221,  594,  215,  413,  500,  374,  562,
+                 193,  356,  171,  191,  111,  239,  259,  283,  246,
+                 102,  129,  154,   54,   63,   48,   36,   41,   35,
+                 35,   86,   126,   41,   43,   59,   22,   26,   34), nrow=4, byrow=TRUE)
+
+
+
+#Get first and last capture occasion for line in summarized capture history
+fc<-apply(sumCH,1,find.first)
+lc<-apply(sumCH,1,find.last)
+
+#Use this to calculate abundance in code:
+CR_ind<-matrix(0,nrow=4,ncol=9)
+1->CR_ind[3:4,]
+
+
+#-----------------------------------------------------------------------------#
+
+sink("JAGS_Marginalized_chub.txt")
 cat("
 model {
 
@@ -298,6 +371,12 @@ for (i in 1:3){
 	tr[7,i,7]<-1
 	}	
 
+#p is the matrix describing capture probabilities
+#Diagonal values represent capture probabilities for the four states
+#The fifth column represents the probability a fish is not captured
+#Note that for fish in states 5-6 (unobserveable sites in the CR that are not sampled)
+#and for state 7 (dead state) the probability a fish is unobserved is 100%
+
 for (i in 1:22){
 	p[1,LCRs[i],1]~dunif(0,1)
 	p[2,LCRs[i],2]~dunif(0,1)
@@ -353,7 +432,7 @@ for (i in 1:26){
 	}
 	
 for(k in 1:NsumCH){
-	pz[k,sumf[k],1]<-equals(sumCH[k,sumf[k]],1)*(1-0.03*newtag[k])
+	pz[k,sumf[k],1]<-equals(sumCH[k,sumf[k]],1)*(1-0.03*newtag[k]) #Account for one-time 3% tag loss
 	pz[k,sumf[k],2]<-equals(sumCH[k,sumf[k]],2)*(1-0.03*newtag[k])
 	pz[k,sumf[k],3]<-equals(sumCH[k,sumf[k]],3)*(1-0.03*newtag[k])
 	pz[k,sumf[k],4]<-equals(sumCH[k,sumf[k]],4)*(1-0.03*newtag[k])
@@ -368,44 +447,88 @@ for(k in 1:NsumCH){
 	one[k]~dbin(lik[k],sumFR[k])
 	}
 	
-for(i in 1:4){for(j in 1:9){
-	p_fall[i,j]<-p[i,fall_ind[j],i]*(1-CR_ind[i,j]*(1-tau))
-	U[i,j]~dnegbin(p_fall[i,j],catch[i,j])
-	N[i,j]=catch[i,j]+U[i,j] }}
+#Calculate abundance from catch by simulating from a negative binomial distribution:
+for(i in 1:4){
+  for(j in 1:9){
+	  p_fall[i,j]<-p[i,fall_ind[j],i]*(1-CR_ind[i,j]*(1-tau))
+	  U[i,j]~dnegbin(p_fall[i,j],catch[i,j])
+	  N[i,j]=catch[i,j]+U[i,j] }}
 
 }
 
 ",fill=TRUE)
 sink() 
 
+#-----------------------------------------------------------------------------#
+#Run JAGS model:
+
+JM.data<-list (LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns,season=season,NsumCH=dim(sumCH)[1],sumCH=array(sumCH,dim=c(dim(sumCH)[1],dim(sumCH)[2])),newtag=as.vector(newtag.AO),
+			sumf=as.vector(fc),sumFR=sumFR,one=sumFR, CR_ind=array(CR_ind,dim=c(dim(CR_ind)[1],dim(CR_ind)[2])), lc=as.vector(lc), fall_ind=1:9*3-1, catch=array(catch,dim=c(dim(catch)[1],dim(catch)[2])))
+
+JM.par<-c('s_i','g','m', 'tau','p_cr','p_lcr','N')
+
+JM.inits<-function(){list(s_i=c(.7,.7,.7,.7))}
+
+JM.out<- jags.parallel(JM.data,inits=JM.inits,JM.par,".\\JAGS_Marginalized_chub.txt",n.cluster=3, n.chains = 1,n.iter=10)
 
 
-require("R2jags")  
+###############################################################################
+#              Multi-state Capture-Recapture model (Humpback Chub)
+#
+#                               Stan Marginalized Version
+#
+
+library(rstan)
+
+#To run Stan in parallel:
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+#Get data:
+dat<-read.csv(".//HBC_data.csv")
+
+
+#-----------------------------------------------------------------------------#
+#  Functions:
+
+#	Get first capture occasion:
+find.first<-function(x){min(which(x!=5))}
+
+#	Get last capture occasion:
+find.last<-function(x){ifelse(length(which(x!=5))==1,27,max(which(x!=5)))}
+
+#-----------------------------------------------------------------------------#
+# format data for model fitting:
+sumCH<-as.matrix(dat[,1:27])
+sumFR<-dat[,28]
+newtag.AO<-dat[,29]
+
+# other data:
+season<-c(rep(1:3,8),1:2) #season index
+LCRs<-c(2,3,5,6,8,9,11:26)
+LCRns<-c(1,4,7,10)
+CRs<-c(1,2,4,5,7:26)
+CRns<-c(3,6)
+catch<-matrix(c( 287,  545,  221,  594,  215,  413,  500,  374,  562,
+                 193,  356,  171,  191,  111,  239,  259,  283,  246,
+                 102,  129,  154,   54,   63,   48,   36,   41,   35,
+                 35,   86,   126,   41,   43,   59,   22,   26,   34), nrow=4, byrow=TRUE)
+
+
 
 #Get first and last capture occasion for line in summarized capture history
-fc<-apply(CHseason,1,find.first)
-lc<-apply(CHseason,1,find.last)
+fc<-apply(sumCH,1,find.first)
+lc<-apply(sumCH,1,find.last)
 
 #Use this to calculate abundance in code:
 CR_ind<-matrix(0,nrow=4,ncol=9)
 1->CR_ind[3:4,]
 
-#Observed frequency of fish with capture history:
-one<-FRseason
 
-JM.data<-list (LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns,season=season,NsumCH=dim(CHseason)[1],sumCH=array(CHseason,dim=c(dim(CHseason)[1],dim(CHseason)[2])),newtag=as.vector(newtag.AO),
-			sumf=as.vector(fc),sumFR=FRseason,one=FRseason, CR_ind=array(CR_ind,dim=c(dim(CR_ind)[1],dim(CR_ind)[2])), lc=as.vector(lc), fall_ind=1:9*3-1, catch=array(catch,dim=c(dim(catch)[1],dim(catch)[2])))
-JM.par<-c('s_i','g','m', 'tau','p_cr','p_lcr','N')
-JM.inits<-function(){list(s_i=c(.7,.7,.7,.7))}
-JM.out<- jags.parallel(JM.data,inits=JM.inits,JM.par,".\\chub_JM.txt",n.cluster=3, n.chains = 3,n.iter=1000)
+#-----------------------------------------------------------------------------#
 
 
-######################################################################
-# Stan-Marginalized 
-#
-#This code uses summarized capture histories, where each line in CH matrix corresponds to a unique capture history (same as JAGS marginalized example)
-
-sink("chub_SM.txt")
+sink("Stan_Marginalized_chub.stan")
 cat("
 data {
 	int<lower=1> NsumCH;
@@ -563,6 +686,7 @@ model {
 		}
 
 
+//Code to estimate abundance by simulating from a negative binomial distribution
 generated quantities{
 	real ptrans;	
 	real<lower=0> scale_par;
@@ -582,26 +706,78 @@ generated quantities{
 sink() 
 
 
-library(rstan)
+#-----------------------------------------------------------------------------#
+#Run model in Stan:
 
 sm.inits <- function() list(s_i = runif(4, 0, 1))  
 sm.params <- c("s_i","g","m", "tau", "p_cr","p_lcr","N") 
-sm.data<-list(NsumCH=dim(CHseason)[1],newtag=as.vector(newtag.AO),sumCH=array(CHseason, dim=c(dim(CHseason)[1],dim(CHseason)[2])),sumf=fc,season=season,sumFR=FRseason,LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns, catch_mat=array(catch, dim=c(dim(catch)[1],dim(catch)[2])),lc=lc, fall_ind=1:9*3-1)
+sm.data<-list(NsumCH=dim(sumCH)[1],newtag=as.vector(newtag.AO),sumCH=array(sumCH, dim=c(dim(sumCH)[1],dim(sumCH)[2])),
+              sumf=fc,season=season,sumFR=sumFR,LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns, 
+              catch_mat=array(catch, dim=c(dim(catch)[1],dim(catch)[2])),lc=lc, fall_ind=1:9*3-1)
 
-#To run code in parallel:
+
+
+SM <- stan(".\\Stan_Marginalized_chub.stan", 
+            data = sm.data, init = sm.inits, pars = sm.params, 
+            chains = 1, iter = 10, thin = 1, 
+            seed = 1) 
+
+###############################################################################
+#              Multi-state Capture-Recapture model (Humpback Chub)
+#
+#                       Stan Marginalized Version with random effects
+#
+
+library(rstan)
+
+#To run Stan in parallel:
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-## Call Stan from R 
-SM <- stan(".\\chub_SM.stan", 
-            data = sm.data, init = sm.inits, pars = sm.params, 
-            chains = 3, iter = 1000, thin = 1, 
-            seed = 1) 
+#Get data:
+dat<-read.csv(".//HBC_data.csv")
+
+#-----------------------------------------------------------------------------#
+#  Functions:
+
+#	Get first capture occasion:
+find.first<-function(x){min(which(x!=5))}
+
+#	Get last capture occasion:
+find.last<-function(x){ifelse(length(which(x!=5))==1,27,max(which(x!=5)))}
+
+#-----------------------------------------------------------------------------#
+# format data for model fitting:
+sumCH<-as.matrix(dat[,1:27])
+sumFR<-dat[,28]
+newtag.AO<-dat[,29]
+
+# other data:
+season<-c(rep(1:3,8),1:2) #season index
+LCRs<-c(2,3,5,6,8,9,11:26)
+LCRns<-c(1,4,7,10)
+CRs<-c(1,2,4,5,7:26)
+CRns<-c(3,6)
+catch<-matrix(c( 287,  545,  221,  594,  215,  413,  500,  374,  562,
+                 193,  356,  171,  191,  111,  239,  259,  283,  246,
+                 102,  129,  154,   54,   63,   48,   36,   41,   35,
+                 35,   86,   126,   41,   43,   59,   22,   26,   34), nrow=4, byrow=TRUE)
 
 
-###################################################################### 
-# Stan-M-RE
-sink("chub_SMRE.txt")
+
+#Get first and last capture occasion for line in summarized capture history
+fc<-apply(sumCH,1,find.first)
+lc<-apply(sumCH,1,find.last)
+
+#Use this to calculate abundance in code:
+CR_ind<-matrix(0,nrow=4,ncol=9)
+1->CR_ind[3:4,]
+
+
+#-----------------------------------------------------------------------------#
+
+
+sink("Stan_Marginalized_chub_RE.stan")
 cat("
 
 data {
@@ -656,6 +832,7 @@ transformed parameters {
 			s[i,j]=(inv_logit(ls[i,j]))^(season[i]>2 ? 2 : 1);
 			}};
 	
+  //state transition matrix:
 	for (i in 1:26){
 		tr[1,i,1]=s[i,1]*(1-g[i,1])*(1-m[i,1]);
 		tr[1,i,2]=s[i,1]*g[i,1]*(1-m[i,2]);
@@ -705,6 +882,7 @@ transformed parameters {
 		tr[7,i,7]=1;
 		}
 
+  //capture probability matrix
 	for (i in 1:22){
 		p[1,LCRs[i],1]=p_lcr[i,1];
 		p[2,LCRs[i],2]=p_lcr[i,2];
@@ -727,34 +905,34 @@ transformed parameters {
 		p[1,i,2]=0;
 		p[1,i,3]=0;
 		p[1,i,4]=0;
-		p[1,i,5]=1-p[1,i,1];
+		p[1,i,5]=1-p[1,i,1]; // prob of fish in state 1 not being captured 
 		p[2,i,1]=0;
 		p[2,i,3]=0;
 		p[2,i,4]=0;
-		p[2,i,5]=1-p[2,i,2];
+		p[2,i,5]=1-p[2,i,2]; // prob of fish in state 2 not being captured 
 		p[3,i,1]=0;
 		p[3,i,2]=0;
 		p[3,i,4]=0;
-		p[3,i,5]=1-p[3,i,3];
+		p[3,i,5]=1-p[3,i,3] ; // prob of fish in state 3 not being captured 
 		p[4,i,1]=0;
 		p[4,i,2]=0;
 		p[4,i,3]=0;
-		p[4,i,5]=1-p[4,i,4];
+		p[4,i,5]=1-p[4,i,4]; // prob of fish in state 4 not being captured 
 		p[5,i,1]=0;
 		p[5,i,2]=0;
 		p[5,i,3]=0;
 		p[5,i,4]=0;
-		p[5,i,5]=1;
+		p[5,i,5]=1; // prob of fish in state 5 not being captured (set to 100% since these fish are unobserveable) 
 		p[6,i,1]=0;
 		p[6,i,2]=0;
 		p[6,i,3]=0;
 		p[6,i,4]=0;
-		p[6,i,5]=1;
+		p[6,i,5]=1; // prob of fish in state 6 not being captured (set to 100% since these fish are unobserveable) 
 		p[7,i,1]=0;
 		p[7,i,2]=0;
 		p[7,i,3]=0;
 		p[7,i,4]=0;
-		p[7,i,5]=1;
+		p[7,i,5]=1; // prob of fish in state 7 not being captured (set to 100% since these fish are dead) 
 		}
 	}
 
@@ -787,7 +965,7 @@ model {
 			}
 
 
-
+//Code to estimate abundance by simulating from a negative binomial distribution
 generated quantities{
 	real ptrans;	
 	real<lower=0> scale_par;
@@ -809,19 +987,20 @@ generated quantities{
 ",fill=TRUE)
 sink() 
 
-rstan_options(auto_write = TRUE)
-options(mc.cores = parallel::detectCores())
+#-----------------------------------------------------------------------------#
+#Run Stan model:
 
-library(rstan)
 smre.inits <- function() {list(mu_ls = rep(0,4))}
+
 smre.params <- c("s","g","m","mu_ls","mu_lg","mu_lm","sd_ls","sd_lm","sd_lg", "tau", "p_lcr","p_cr", "N") 
-smre.data<-list(NsumCH=dim(CHseason)[1],sumCH=CHseason,sumf=as.vector(fc),season=season,sumFR=FRseason,LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns, 
+
+smre.data<-list(NsumCH=dim(sumCH)[1],sumCH=sumCH,sumf=as.vector(fc),season=season,sumFR=sumFR,LCRs=LCRs,LCRns=LCRns,CRs=CRs,CRns=CRns, 
 				fall_ind=1:9*3-1,catch_mat=array(catch,dim=c(dim(catch)[1],dim(catch)[2])),lc=as.vector(lc),newtag=as.vector(newtag.AO))
 
 ## Call Stan from R 
-SMRE <- stan(".\\chub_SMRE_noncentered.stan", 
+SMRE <- stan(".\\Stan_Marginalized_chub_RE.stan", 
             data = smre.data, init =smre.inits, pars = smre.params, 
-            chains = 3, iter = 1000, thin = 1, 
+            chains = 1, iter = 10, thin = 1, 
             seed = 1) 
 
 
