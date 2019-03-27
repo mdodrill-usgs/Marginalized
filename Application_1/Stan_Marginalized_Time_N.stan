@@ -7,7 +7,7 @@ data{
   int<lower = 1, upper = 2> sumCH[NsumCH, n_occasions];
   int<lower = 1> sumf[NsumCH];
   int<lower = 1> sumFR[NsumCH];
-  int<lower = 1> Catch[n_occasions];
+  int<lower = 1> Catch[n_occasions - 2];
 }
 
 parameters{
@@ -54,9 +54,9 @@ generated quantities{
 	real ptrans;	
 	real<lower = 0> scale_par;
 	int U[n_occasions];
-	int<lower = 0> N[n_occasions - 1];   //  lower bound at 0 here ?
+	int<lower = 0> N[n_occasions - 2];   //  lower bound at 0 here ?
 
-	for(i in 1:n_occasions - 1){
+	for(i in 1:n_occasions - 2){
 	  ptrans = p[i]; 
   	// convert p-cap to scale par for negbin
   	scale_par = ptrans / (1 - ptrans); 
