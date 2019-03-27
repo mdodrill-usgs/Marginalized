@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Nov 18
+#                                                                     Spring 19
 #  Fitting a multi-state version of a CJS model to the RBT data 
 #  Discrete WinBUGS version - fixed time effects
 #
@@ -82,32 +82,30 @@ model{
 sink()    
 
 #-----------------------------------------------------------------------------#
-JD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
-JD.par <- c('phi', 'p')
+WD.data <- list(NY = NY, Nint = Nint, Y = Y, indf = indf, Z = Z)
+WD.par <- c('phi', 'p')
 
-# JD.inits <- function(){list(phi = runif((Nint), .4, .6),
+# WD.inits <- function(){list(phi = runif((Nint), .4, .6),
 #                             p = runif((Nint), .4, .6),
 #                             Z = cjs.init.z(CH, indf))}
-
 
 ni <- 10
 nt <- 1
 nb <- 5
 
 t1 <- proc.time()
-JD.out <- R2WinBUGS::bugs(JD.data, inits = NULL, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
+WD.out <- R2WinBUGS::bugs(WD.data, inits = NULL, WD.par, "WinBUGS_Discrete_Time.WinBUGS",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb, debug = FALSE)
 t2 <- proc.time()
 
-print(JD.out, digits = 3)
+print(WD.out, digits = 3)
 
-#-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#
 library(foreach)
 library(doParallel)
 
 Sys.time()
-n.core = 5
+n.core = 12
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -116,16 +114,9 @@ registerDoParallel(cl1)
 cllibs <- clusterEvalQ(cl1, c(library(R2WinBUGS)))
 
 all.t1 = proc.time()
-n.runs = 10
+n.runs = 12
 
-# my.n.iter = c(10, 15)
-my.n.iter = seq(0,10000,1000)[- 1]
-# my.n.iter = seq(11000,20000,1000)
-# my.n.iter = rep(500, 1)
-
-# my.n.iter = my.n.iter[1]
-# my.n.iter = my.n.iter[1:10]
-# my.n.iter = my.n.iter[11:20]
+my.n.iter = rep(10000)
 
 big.fit.list = list()
 
@@ -153,9 +144,6 @@ out <- foreach(j = seeds, .errorhandling = 'pass') %:%
     t1 <- proc.time()
     
     result <- tryCatch({
-      # out = R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
-      #                        n.chains = 3, n.iter = iter.in, n.thin = nt,
-      #                        bugs.seed = seed)
       out <- R2WinBUGS::bugs(JD.data, inits = NULL, JD.par, "WinBUGS_Discrete_Time.WinBUGS",
                                 n.chains = 3, n.iter = iter.in, n.thin = nt,
                              bugs.seed = seed)
@@ -185,19 +173,19 @@ print(round(time.taken,2))
 all.t2 = proc.time()
 stopCluster(cl1)  # close the clusters
 
-
 length(out)
 length(out[[1]])
 
 all.out = do.call('c', out)
 length(all.out)
 
-# tmp = run.times(all.out)
+tmp = run.times(all.out)
+tmp
 
-all.bugs.d.time.4 = all.out
+all.bugs.d.time.6 = all.out
 
-rm(list=setdiff(ls(), "all.bugs.d.time.4"))
+rm(list=setdiff(ls(), "all.bugs.d.time.6"))
 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_D_Time_4.RData")
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_D_Time_6.RData")
 
 #-----------------------------------------------------------------------------#
