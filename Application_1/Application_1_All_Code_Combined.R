@@ -14,7 +14,7 @@
 #
 #  Notes:
 #  * Need to set directory for data
-#  * Need to supply JAGS settings
+#  * Need to supply JAGS/WinBUGS/Stan settings
 #
 ###############################################################################
 library(R2jags)
@@ -90,7 +90,7 @@ JD.out <- jags.parallel(JD.data, inits = NULL, JD.par, "JAGS_Discrete_Time.jags"
 #
 #  Notes:
 #  * Need to set directory for data
-#  * Need to supply JAGS settings
+#  * Need to supply JAGS/WinBUGS/Stan settings
 #
 ###############################################################################
 library(R2jags)
@@ -175,7 +175,7 @@ JM.out <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.j
 #  * OpenBUGS will crash with indexing of omega and rho like other CJS examples,
 #    see note below. Same issue as WinBUGS. 
 #  * Need to set directory for data
-#  * Need to supply JAGS settings
+#  * Need to supply JAGS/WinBUGS/Stan settings
 #
 ###############################################################################
 library(R2OpenBUGS)
@@ -263,7 +263,7 @@ OD.out <- R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Tim
 #
 #  Notes:
 #  * Need to set directory for data
-#  * Need to supply JAGS settings
+#  * Need to supply JAGS/WinBUGS/Stan settings
 #
 ###############################################################################
 library(R2OpenBUGS)
@@ -348,7 +348,7 @@ OM.out <- R2OpenBUGS::bugs(OM.data, inits = NULL, OM.par, "OpenBUGS_Marginalized
 #  * WinBUGS will crash with indexing of omega and rho like other CJS examples,
 #    see note below.
 #  * Need to set directory for data
-#  * Need to supply JAGS settings
+#  * Need to supply JAGS/WinBUGS/Stan settings
 #
 ###############################################################################
 library(R2WinBUGS)
@@ -428,5 +428,88 @@ WD.par <- c('phi', 'p')
 # be explicit on the call to 'bugs', as the names are same for both R2WinBUGS and R2OpenBUGS
 WD.out <- R2WinBUGS::bugs(WD.data, inits = NULL, WD.par, "WinBUGS_Discrete_Time.WinBUGS",
                           n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb, debug = FALSE)
+
+#-----------------------------------------------------------------------------#
+###############################################################################
+#                                                                     Spring 19
+#  Fitting a multi-state version of a CJS model to the RBT data 
+#  Marginalized WinBUGS version - fixed time effects
+#
+#  Notes:
+#  * Need to set directory for data
+#  * Need to supply JAGS/WinBUGS/Stan settings
+#
+###############################################################################
+library(R2WinBUGS)
+
+# data.dir = paste0(getwd(), "/Data")
+CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
+                          header = FALSE, sep = "\t"))
+#-----------------------------------------------------------------------------#
+# format data for model fitting
+tmpCH = collapse.ch(CH)[[1]]
+FR = collapse.ch(CH)[[2]]
+
+# Create vector with occasion of marking
+get.first <- function(x) min(which(x != 0))
+sumf <- apply(tmpCH, 1, get.first)
+
+S = tmpCH
+S[S[,] == 0] = 2
+
+NS = nrow(S)          # number of capture histories 
+Nint = ncol(S) - 1    # number of sampling intervals
+
+ones <- FR
+
+zeta = known.state.cjs(tmpCH)
+
+#-----------------------------------------------------------------------------#
+sink("WinBUGS_Marginalized_Time.WinBUGS")
+cat("
+model{
+  
+  for(t in 1:Nint){ 
+    phi[t] ~ dunif(0,1)
+    p[t] ~ dunif(0,1)
+    
+    omega[1,1,t] <- phi[t]
+    omega[1,2,t] <- 1 - phi[t]
+    omega[2,1,t] <- 0
+    omega[2,2,t] <- 1
+    
+    rho[1,1,t] <- p[t]
+    rho[1,2,t] <- 1 - p[t]
+    rho[2,1,t] <- 0
+    rho[2,2,t] <- 1
+  }
+  
+  for(i in 1:NS){
+    zeta[i,sumf[i],1] <- 1
+    zeta[i,sumf[i],2] <- 0
+    
+    for(t in sumf[i]:Nint){
+      zeta[i,(t+1),1] <- inprod(zeta[i,t,], omega[,1,t]) * rho[1,S[i,(t+1)],t]
+      zeta[i,(t+1),2] <- inprod(zeta[i,t,], omega[,2,t]) * rho[2,S[i,(t+1)],t]
+    }
+    
+    lik[i] <- sum(zeta[i,(Nint+1),])
+    ones[i] ~ dbin(lik[i], FR[i])
+  }
+}
+    ", fill = TRUE)
+sink() 
+#-----------------------------------------------------------------------------#
+WM.data <- list(NS = NS, Nint = Nint, S = S,
+                sumf = sumf, FR = FR, ones = ones)
+WM.par <- c('phi', 'p')
+
+# ni <- 1000
+# nt <- 1
+# nb <- 500
+
+# be explicit on the call to 'bugs', as the names are same for both R2WinBUGS and R2OpenBUGS
+WM.out <- R2WinBUGS::bugs(WM.data, inits = NULL, WM.par, "WinBUGS_Marginalized_Time.WinBUGS",
+               n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 
 #-----------------------------------------------------------------------------#
