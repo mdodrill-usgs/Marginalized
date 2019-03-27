@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Nov 18
+#                                                                     Spring 19
 #  Fitting a multi-state version of a CJS model to the RBT data 
 #  Discrete OpenBUGS version - fixed time effects
 #
@@ -12,6 +12,7 @@
 #
 ###############################################################################
 library(R2OpenBUGS)
+setwd("U:/Desktop/Fish_Git/Marginalized")
 source(paste0(getwd(),"/Functions.R"), chdir = F)
 
 setwd(paste0(getwd(), '/Application_1'))
@@ -96,11 +97,10 @@ t2 <- proc.time()
 print(OD.out, digits = 3)
 
 #-----------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------#
 library(foreach)
 library(doParallel)
 
-n.core = 10
+n.core = 15
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -109,15 +109,9 @@ registerDoParallel(cl1)
 cllibs <- clusterEvalQ(cl1, c(library(R2OpenBUGS)))
 
 all.t1 = proc.time()
-n.runs = 10
+n.runs = 5
 
-# my.n.iter = c(10, 15)
-# my.n.iter = seq(0,10000,500)[- 1]
-my.n.iter = seq(11000,20000,1000)
-# my.n.iter = rep(500, 1)
-
-# my.n.iter = my.n.iter[1:10]
-# my.n.iter = my.n.iter[11:20]
+my.n.iter = seq(5000,20000,1000)
 
 big.fit.list = list()
 
@@ -145,7 +139,7 @@ out <- foreach(j = seeds, .errorhandling = 'pass') %:%
     
     result <- tryCatch({
       out = R2OpenBUGS::bugs(OD.data, inits = NULL, OD.par, "OpenBUGS_Discrete_Time.OpenBUGS",
-                               n.chains = 3, n.iter = iter.in, n.thin = nt,
+                               n.chains = 3, n.iter = iter.in, #n.thin = nt,
                                bugs.seed = seed)
     }, 
       warning = function(war) {
@@ -170,7 +164,6 @@ print(round(time.taken,2))
 all.t2 = proc.time()
 stopCluster(cl1)  # close the clusters
 
-
 length(out)
 length(out[[1]])
 
@@ -178,11 +171,12 @@ all.out = do.call('c', out)
 length(all.out)
 
 tmp = run.times(all.out)
+tmp
 
-all.Open.d.time.3 = all.out
+all.Open.d.time.6 = all.out
 
-rm(list=setdiff(ls(), "all.Open.d.time.3"))
+rm(list=setdiff(ls(), "all.Open.d.time.6"))
 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/Open_D_Time_3.RData")
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/Open_D_Time_6.RData")
 
 #-----------------------------------------------------------------------------#
