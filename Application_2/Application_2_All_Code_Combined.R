@@ -1,5 +1,5 @@
 
-
+# check the MCMC setting vs the paper...
 
 
 
@@ -23,6 +23,7 @@ visited <- read.csv(".\\visited.csv", header = FALSE)
 
 #-----------------------------------------------------------------------------#
 # format data for model fitting:
+
 # detection covariates: day, night, method1, method3, second half, and survey
 # length effects on BO detection
 pX <- array(NA, dim = c(158, 176, 7))
@@ -55,6 +56,7 @@ for(i in 1:22){
 }
 
 1 -> BO[BO > 1]
+
 # Matrix 'NSO' is whether or not spotted owls were detected at each site at
 # least once in each year
 NSO <- numeric()
@@ -72,7 +74,7 @@ for(i in 1:22){
 
 sink("JAGS_Discrete_owls.txt")
 cat("
-model {
+model{
   
   psi0_BO ~ dunif(0,1)
   psi0_NSO ~ dunif(0,1)
@@ -154,188 +156,211 @@ owls_JD.par <- c('pBO_b', 'pNSO_b', 'psi0_BO', 'psi0_NSO', 'gamNSO_b', 'epsNSO_b
                  'epsNSO_int', 'gamBO_int', 'epsBO_int', 'gamBO_b', 'epsBO_b', 'gamNSO_int')
 
 owls_JD.out <- jags.parallel(owls_JD.data, inits = NULL, owls_JD.par,
-                             "JAGS_Discrete_owls.txt", n.chains = 3, n.iter = 2000, jags.seed = 1)
+                             "JAGS_Discrete_owls.txt", n.chains = 3,
+                             n.iter = 2000, jags.seed = 1)
 
-
-###############################################################################
-###############################################################################
-#              Dynamic two-species occupancy model with autologistic effects (Barred owls and Northern Spotted owls)
-#
-#                               JAGS Marginalized Version
-#
 #-----------------------------------------------------------------------------#
-
+###############################################################################
+#                                                                     Spring 19
+#  Dynamic two-species occupancy model with autologistic effects
+#  (Barred owls and Northern Spotted owls)
+#  JAGS Marginalized Version
+#
+#  Notes:
+#  * Need to set directory for data
+#
+###############################################################################
 library(R2jags)
 
-#Get data:
-setwd("U:\\Marginalized likelihood\\BO_NSO")
-RF<-read.csv(".\\RF.csv",header=FALSE)
-FOR<-read.csv(".\\FOR.csv",header=FALSE)
-visited<-read.csv(".\\visited.csv",header=FALSE)
-
+# Get data:
+RF <- read.csv(".\\RF.csv", header = FALSE)
+FOR <- read.csv(".\\FOR.csv", header = FALSE)
+visited <- read.csv(".\\visited.csv", header = FALSE)
 
 #-----------------------------------------------------------------------------#
 # format data for model fitting:
 
-# JAGS-Marginalized - 4 states: 1 - Neither present, 2 - NSO present, 3 - BO present, 4 - both species present
-# requires matrix of visited per site/year/8 visits with 0 when not visited and 1 when visited, one is rep (1,158), and y
+# JAGS-Marginalized - 4 states: 
+# 1 - Neither present, 2 - NSO present, 3 - BO present, 4 - both species present
+# requires matrix of visited per site/year/8 visits with 0 when not visited and
+# 1 when visited, one is rep (1,158), and y
 
-pX<-array(NA,dim=c(158,176,7))# detection covariates: day, night, method1, method3, second half, and survey length effects on BO detection
-pX[,,1]<-matrix(unlist(visited),nrow=dim(visited)[1],ncol=dim(visited)[2])
-pX[,,2]<-as.matrix(read.csv(".\\day.csv",header=FALSE))
-pX[,,3]<-as.matrix(read.csv(".\\night.csv",header=FALSE))
-pX[,,4]<-as.matrix(read.csv(".\\mtd1.csv",header=FALSE))
-pX[,,5]<-as.matrix(read.csv(".\\mtd3.csv",header=FALSE))
-pX[,1:88,6]<-0
-pX[,89:176,6]<-1
-pX[,,7]<-as.matrix(read.csv(".\\tott.csv",header=FALSE))
-#If site is not visited, change all covariates to zero:
-for(i in 1:158){for(j in 1:176){ if(visited[i,j]==0){pX[i,j,]<-0}}}  
-owls<-as.matrix(read.csv(".\\owls.csv",header=FALSE))
-Y_BO<-ifelse(owls>1,1,0)
-Y_NSO<-ifelse(owls==1|owls==3,1,0)
-Y<-owls+1
+# detection covariates: day, night, method1, method3, second half, and survey
+# length effects on BO detection
+pX <- array(NA, dim = c(158, 176, 7))
+pX[,,1] <- matrix(unlist(visited), nrow = dim(visited)[1], ncol = dim(visited)[2])
+pX[,,2] <- as.matrix(read.csv(".\\day.csv", header = FALSE))
+pX[,,3] <- as.matrix(read.csv(".\\night.csv", header = FALSE))
+pX[,,4] <- as.matrix(read.csv(".\\mtd1.csv", header = FALSE))
+pX[,,5] <- as.matrix(read.csv(".\\mtd3.csv", header = FALSE))
+pX[,1:88,6] <- 0
+pX[,89:176,6] <- 1
+pX[,,7] <- as.matrix(read.csv(".\\tott.csv", header = FALSE))
+
+# If site is not visited, change all covariates to zero:
+for(i in 1:158){
+  for(j in 1:176){
+    if(visited[i,j] == 0){pX[i,j,] <- 0}
+  }
+}
+
+owls <- as.matrix(read.csv(".\\owls.csv", header = FALSE))
+Y_BO <- ifelse(owls > 1, 1, 0)
+Y_NSO <- ifelse(owls == 1 | owls == 3,1,0)
+Y <- owls + 1
 
 #-----------------------------------------------------------------------------#
 sink("JAGS_Marginalized_owls.txt")
 cat("
-    model {
-    
-    #Unconditional occupancy estimates:
-    psi0_BO~dunif(0,1)
-    psi0_NSO~dunif(0,1)
-    
-    for (t in 1:21){
-    gamNSO_int[t]~dunif(-5,5)} # time varying colonization
-    
-    gamNSO_b~dunif(-5,5) # Forest effect
-    epsNSO_int~dunif(-5,5)
-    epsNSO_b~dunif(-5,5) # BO effect
-    gamBO_int~dunif(-5,5)
-    epsBO_int~dunif(-5,5)
-    
-    gamBO_b[1]~dunif(-5,5) #Riparian forest effect on colonization
-    epsBO_b[1]~dunif(-5,5) #Riparian forest effect on extinction
-    gamBO_b[2]~dunif(-15,15) #Autologistic effecton colonization
-    epsBO_b[2]~dunif(-15,15) #Autologistic effect on extinction
-    gamBO_b[3]~dunif(-5,5) #NSO effect on colonization
-    epsBO_b[3]~dunif(-5,5) #NSO effect on extinction
-    
-    for (i in 1:6){
-    pNSO_b[i]~dunif(-5,5)} # day, night, method1, method3 and BO effects on NSO detection
-    for (i in 1:7){
-    pBO_b[i]~dunif(-5,5)} # day, night, method1, method3, second half, and survey length effects on BO detection
-    
-    #Observation model:
-    for (k in 1:158){
-    for (j in 1:176){
-    pBO[k,j]<-pX[k,j,1]*ilogit(inprod(pBO_b,pX[k,j,]))
-    pNSO_BO[k,j]<-pX[k,j,1]*ilogit(inprod(pNSO_b[1:5],pX[k,j,1:5])+pNSO_b[6])
-    pNSO_bo[k,j]<-pX[k,j,1]*ilogit(inprod(pNSO_b[1:5],pX[k,j,1:5]))
-    p[k,j,1,1]<-1 #prob that site in state 1 (no BO or NSO) is detected as state 1 
-    p[k,j,1,2]<-0
-    p[k,j,1,3]<-0
-    p[k,j,1,4]<-0
-    p[k,j,2,1]<-1-pNSO_bo[k,j] #prob that site in state 2 (NSO only) is detected as state 1 (no NSO or BO)
-    p[k,j,2,2]<-pNSO_bo[k,j] #prob that site in state 2 (NSO only) is detected as state 2 (NSO only)
-    p[k,j,2,3]<-0
-    p[k,j,2,4]<-0
-    p[k,j,3,1]<-1-pBO[k,j] #prob that site in state 3 (BO only) is detected as state 1 (no NSO or BO)
-    p[k,j,3,2]<-0
-    p[k,j,3,3]<-pBO[k,j]#prob that site in state 3 (BO only) is detected as state 3 (BO only)
-    p[k,j,3,4]<-0
-    p[k,j,4,1]<-1-(pBO[k,j]+pNSO_BO[k,j]-pBO[k,j]*pNSO_BO[k,j]) #prob that site in state 4 (NSO & BO) is detected as state 1 (no NSO or BO)
-    p[k,j,4,2]<-pNSO_BO[k,j]*(1-pBO[k,j])#prob that site in state 4 (NSO & BO) is detected as state 2 (NSO only)
-    p[k,j,4,3]<-(1-pNSO_BO[k,j])*pBO[k,j]#prob that site in state 4 (NSO & BO) is detected as state 3 (BO only)
-    p[k,j,4,4]<-pNSO_BO[k,j]*pBO[k,j] #prob that site in state 4 (NSO & BO) is detected as state 4 (NSO & BO)
+model{
+  
+  # Unconditional occupancy estimates:
+  psi0_BO ~ dunif(0,1)
+  psi0_NSO ~ dunif(0,1)
+  
+  # time varying colonization
+  for(t in 1:21){
+    gamNSO_int[t] ~ dunif(-5,5)
+  } 
+  
+  gamNSO_b ~ dunif(-5,5) # Forest effect
+  epsNSO_int ~ dunif(-5,5)
+  epsNSO_b ~ dunif(-5,5) # BO effect
+  gamBO_int ~ dunif(-5,5)
+  epsBO_int ~ dunif(-5,5)
+  
+  gamBO_b[1] ~ dunif(-5,5)   # Riparian forest effect on colonization
+  epsBO_b[1] ~ dunif(-5,5)   # Riparian forest effect on extinction
+  gamBO_b[2] ~ dunif(-15,15) # Autologistic effecton colonization
+  epsBO_b[2] ~ dunif(-15,15) # Autologistic effect on extinction
+  gamBO_b[3] ~ dunif(-5,5)   # NSO effect on colonization
+  epsBO_b[3] ~ dunif(-5,5)   # NSO effect on extinction
+  
+  # day, night, method1, method3 and BO effects on NSO detection
+  for(i in 1:6){
+    pNSO_b[i] ~ dunif(-5,5)
+  } 
+  
+  # day, night, method1, method3, second half, and survey length effects
+  # on BO detection
+  for(i in 1:7){
+    pBO_b[i] ~ dunif(-5,5)
+  } 
+  
+  # Observation model:
+  for(k in 1:158){
+    for(j in 1:176){
+      pBO[k,j] <- pX[k,j,1] * ilogit(inprod(pBO_b, pX[k,j,]))
+      pNSO_BO[k,j] <- pX[k,j,1] * ilogit(inprod(pNSO_b[1:5], pX[k,j,1:5]) + pNSO_b[6])
+      pNSO_bo[k,j] <- pX[k,j,1] * ilogit(inprod(pNSO_b[1:5], pX[k,j,1:5]))
+      p[k,j,1,1] <- 1 # prob that site in state 1 (no BO or NSO) is detected as state 1 
+      p[k,j,1,2] <- 0
+      p[k,j,1,3] <- 0
+      p[k,j,1,4] <- 0
+      p[k,j,2,1] <- 1 - pNSO_bo[k,j] # prob that site in state 2 (NSO only) is detected as state 1 (no NSO or BO)
+      p[k,j,2,2] <- pNSO_bo[k,j] # prob that site in state 2 (NSO only) is detected as state 2 (NSO only)
+      p[k,j,2,3] <- 0
+      p[k,j,2,4] <- 0
+      p[k,j,3,1] <- 1 - pBO[k,j] # prob that site in state 3 (BO only) is detected as state 1 (no NSO or BO)
+      p[k,j,3,2] <- 0
+      p[k,j,3,3] <- pBO[k,j] # prob that site in state 3 (BO only) is detected as state 3 (BO only)
+      p[k,j,3,4] <- 0
+      p[k,j,4,1] <- 1 - (pBO[k,j] + pNSO_BO[k,j] - pBO[k,j] * pNSO_BO[k,j]) # prob that site in state 4 (NSO & BO) is detected as state 1 (no NSO or BO)
+      p[k,j,4,2] <- pNSO_BO[k,j] * (1 - pBO[k,j]) # prob that site in state 4 (NSO & BO) is detected as state 2 (NSO only)
+      p[k,j,4,3] <- (1 - pNSO_BO[k,j]) * pBO[k,j] # prob that site in state 4 (NSO & BO) is detected as state 3 (BO only)
+      p[k,j,4,4] <- pNSO_BO[k,j] * pBO[k,j] # prob that site in state 4 (NSO & BO) is detected as state 4 (NSO & BO)
     }
-    for (t in 1:22){
-    cp[k,(1+(t-1)*8),1]<-p[k,(1+(t-1)*8),1,Y[k,(1+(t-1)*8)]]
-    cp[k,(1+(t-1)*8),2]<-p[k,(1+(t-1)*8),2,Y[k,(1+(t-1)*8)]]
-    cp[k,(1+(t-1)*8),3]<-p[k,(1+(t-1)*8),3,Y[k,(1+(t-1)*8)]]
-    cp[k,(1+(t-1)*8),4]<-p[k,(1+(t-1)*8),4,Y[k,(1+(t-1)*8)]]
-    for (j in 2:8){
-    cp[k,(j+(t-1)*8),1]<-cp[k,(j-1+(t-1)*8),1]*p[k,(j+(t-1)*8),1,Y[k,(j+(t-1)*8)]]
-    cp[k,(j+(t-1)*8),2]<-cp[k,(j-1+(t-1)*8),2]*p[k,(j+(t-1)*8),2,Y[k,(j+(t-1)*8)]]
-    cp[k,(j+(t-1)*8),3]<-cp[k,(j-1+(t-1)*8),3]*p[k,(j+(t-1)*8),3,Y[k,(j+(t-1)*8)]]
-    cp[k,(j+(t-1)*8),4]<-cp[k,(j-1+(t-1)*8),4]*p[k,(j+(t-1)*8),4,Y[k,(j+(t-1)*8)]]
+    for(t in 1:22){
+      cp[k,(1+(t-1)*8),1] <- p[k,(1+(t-1)*8),1,Y[k,(1+(t-1)*8)]]
+      cp[k,(1+(t-1)*8),2] <- p[k,(1+(t-1)*8),2,Y[k,(1+(t-1)*8)]]
+      cp[k,(1+(t-1)*8),3] <- p[k,(1+(t-1)*8),3,Y[k,(1+(t-1)*8)]]
+      cp[k,(1+(t-1)*8),4] <- p[k,(1+(t-1)*8),4,Y[k,(1+(t-1)*8)]]
+      for (j in 2:8){
+        cp[k,(j+(t-1)*8),1] <- cp[k,(j-1+(t-1)*8),1]*p[k,(j+(t-1)*8),1,Y[k,(j+(t-1)*8)]]
+        cp[k,(j+(t-1)*8),2] <- cp[k,(j-1+(t-1)*8),2]*p[k,(j+(t-1)*8),2,Y[k,(j+(t-1)*8)]]
+        cp[k,(j+(t-1)*8),3] <- cp[k,(j-1+(t-1)*8),3]*p[k,(j+(t-1)*8),3,Y[k,(j+(t-1)*8)]]
+        cp[k,(j+(t-1)*8),4] <- cp[k,(j-1+(t-1)*8),4]*p[k,(j+(t-1)*8),4,Y[k,(j+(t-1)*8)]]
+      }
     }
+  }
+  
+  # Unconditional occupancy:
+  unc_pz[1] <- (1-psi0_BO) * (1-psi0_NSO)
+  unc_pz[2] <- (1-psi0_BO) * psi0_NSO
+  unc_pz[3] <- psi0_BO * (1-psi0_NSO)
+  unc_pz[4] <- psi0_BO * psi0_NSO
+  
+  # Use detection data at t=1 to update state probabilities:		
+  for (k in 1:158){
+    pz[k,1,1] <- unc_pz[1] * cp[k,8,1]
+    pz[k,1,2] <- unc_pz[2] * cp[k,8,2]
+    pz[k,1,3] <- unc_pz[3] * cp[k,8,3]
+    pz[k,1,4] <- unc_pz[4] * cp[k,8,4]
+    BO[k,1] <- sum(pz[k,1,3:4]) / sum(pz[k,1,1:4])
+  }
+  
+  logit(epsNSO_BO) <- epsNSO_int + epsNSO_b
+  logit(epsNSO_bo) <- epsNSO_int
+  
+  #Process model:
+  for(t in 1:21){
+    st_psiBO[t] <- (sum(BO[1:158,t]) / 158 - .5) #covariate for BO autologistic effect
+    for(k in 1:158){
+      logit(gamNSO[k,t]) <- gamNSO_int[t] + gamNSO_b * FOR[k,t]
+      logit(gamBO_NSO[k,t]) <- gamBO_int + gamBO_b[1] * RF[k,t] + gamBO_b[2] * st_psiBO[t] + gamBO_b[3]
+      logit(gamBO_nso[k,t]) <- gamBO_int + gamBO_b[1] * RF[k,t] + gamBO_b[2] * st_psiBO[t]
+      logit(epsBO_NSO[k,t]) <- epsBO_int + epsBO_b[1] * RF[k,t] + epsBO_b[2] * st_psiBO[t] + epsBO_b[3]
+      logit(epsBO_nso[k,t]) <- epsBO_int + epsBO_b[1] * RF[k,t] + epsBO_b[2] * st_psiBO[t]
+      tr[k,t,1,1] <- (1 - gamNSO[k,t]) * (1 - gamBO_nso[k,t])
+      tr[k,t,1,2] <- gamNSO[k,t] * (1 - gamBO_nso[k,t])
+      tr[k,t,1,3] <- (1 - gamNSO[k,t]) * gamBO_nso[k,t]
+      tr[k,t,1,4] <- gamNSO[k,t] * gamBO_nso[k,t]
+      tr[k,t,2,1] <- epsNSO_bo * (1 - gamBO_NSO[k,t])
+      tr[k,t,2,2] <- (1 - epsNSO_bo) * (1 - gamBO_NSO[k,t])
+      tr[k,t,2,3] <- epsNSO_bo * gamBO_NSO[k,t]
+      tr[k,t,2,4] <- (1 - epsNSO_bo) * gamBO_NSO[k,t]
+      tr[k,t,3,1] <- (1 - gamNSO[k,t]) * epsBO_nso[k,t]
+      tr[k,t,3,2] <- gamNSO[k,t] * epsBO_nso[k,t]
+      tr[k,t,3,3] <- (1 - gamNSO[k,t]) * (1 - epsBO_nso[k,t])
+      tr[k,t,3,4] <- gamNSO[k,t] * (1 - epsBO_nso[k,t])
+      tr[k,t,4,1] <- epsNSO_BO * epsBO_NSO[k,t]
+      tr[k,t,4,2] <- (1 - epsNSO_BO) * epsBO_NSO[k,t]
+      tr[k,t,4,3] <- epsNSO_BO * (1 - epsBO_NSO[k,t])
+      tr[k,t,4,4] <- (1 - epsNSO_BO) * (1 - epsBO_NSO[k,t])
+      
+      # Update process model using observation model:
+      pz[k,(t+1),1] <- inprod(pz[k,t,], tr[k,t,,1]) * cp[k,(8*(t+1)),1]
+      pz[k,(t+1),2] <- inprod(pz[k,t,], tr[k,t,,2]) * cp[k,(8*(t+1)),2]
+      pz[k,(t+1),3] <- inprod(pz[k,t,], tr[k,t,,3]) * cp[k,(8*(t+1)),3]
+      pz[k,(t+1),4] <- inprod(pz[k,t,], tr[k,t,,4]) * cp[k,(8*(t+1)),4]
+      BO[k,(t+1)] <- sum(pz[k,(t+1),3:4]) / sum(pz[k,(t+1),1:4])
     }
-    }
-    
-    #Unconditional occupancy:
-    unc_pz[1]<-(1-psi0_BO)*(1-psi0_NSO)
-    unc_pz[2]<-(1-psi0_BO)*psi0_NSO
-    unc_pz[3]<-psi0_BO*(1-psi0_NSO)
-    unc_pz[4]<-psi0_BO*psi0_NSO
-    
-    #Use detection data at t=1 to update state probabilities:		
-    for (k in 1:158){
-    pz[k,1,1]<-unc_pz[1]*cp[k,8,1]
-    pz[k,1,2]<-unc_pz[2]*cp[k,8,2]
-    pz[k,1,3]<-unc_pz[3]*cp[k,8,3]
-    pz[k,1,4]<-unc_pz[4]*cp[k,8,4]
-    BO[k,1]<-sum(pz[k,1,3:4])/sum(pz[k,1,1:4])
-    }
-    
-    logit(epsNSO_BO)<-epsNSO_int+epsNSO_b
-    logit(epsNSO_bo)<-epsNSO_int
-    
-    #Process model:
-    for (t in 1:21){
-    st_psiBO[t]<-(sum(BO[1:158,t])/158-.5) #covariate for BO autologistic effect
-    for (k in 1:158){
-    logit(gamNSO[k,t])<-gamNSO_int[t]+gamNSO_b*FOR[k,t]
-    logit(gamBO_NSO[k,t])<-gamBO_int+gamBO_b[1]*RF[k,t]+gamBO_b[2]*st_psiBO[t]+gamBO_b[3]
-    logit(gamBO_nso[k,t])<-gamBO_int+gamBO_b[1]*RF[k,t]+gamBO_b[2]*st_psiBO[t]
-    logit(epsBO_NSO[k,t])<-epsBO_int+epsBO_b[1]*RF[k,t]+epsBO_b[2]*st_psiBO[t]+epsBO_b[3]
-    logit(epsBO_nso[k,t])<-epsBO_int+epsBO_b[1]*RF[k,t]+epsBO_b[2]*st_psiBO[t]
-    tr[k,t,1,1]<-(1-gamNSO[k,t])*(1-gamBO_nso[k,t])
-    tr[k,t,1,2]<-gamNSO[k,t]*(1-gamBO_nso[k,t])
-    tr[k,t,1,3]<-(1-gamNSO[k,t])*gamBO_nso[k,t]
-    tr[k,t,1,4]<-gamNSO[k,t]*gamBO_nso[k,t]
-    tr[k,t,2,1]<-epsNSO_bo*(1-gamBO_NSO[k,t])
-    tr[k,t,2,2]<-(1-epsNSO_bo)*(1-gamBO_NSO[k,t])
-    tr[k,t,2,3]<-epsNSO_bo*gamBO_NSO[k,t]
-    tr[k,t,2,4]<-(1-epsNSO_bo)*gamBO_NSO[k,t]
-    tr[k,t,3,1]<-(1-gamNSO[k,t])*epsBO_nso[k,t]
-    tr[k,t,3,2]<-gamNSO[k,t]*epsBO_nso[k,t]
-    tr[k,t,3,3]<-(1-gamNSO[k,t])*(1-epsBO_nso[k,t])
-    tr[k,t,3,4]<-gamNSO[k,t]*(1-epsBO_nso[k,t])
-    tr[k,t,4,1]<-epsNSO_BO*epsBO_NSO[k,t]
-    tr[k,t,4,2]<-(1-epsNSO_BO)*epsBO_NSO[k,t]
-    tr[k,t,4,3]<-epsNSO_BO*(1-epsBO_NSO[k,t])
-    tr[k,t,4,4]<-(1-epsNSO_BO)*(1-epsBO_NSO[k,t])
-    #Update process model using observation model:
-    pz[k,(t+1),1]<-inprod(pz[k,t,],tr[k,t,,1])*cp[k,(8*(t+1)),1]
-    pz[k,(t+1),2]<-inprod(pz[k,t,],tr[k,t,,2])*cp[k,(8*(t+1)),2]
-    pz[k,(t+1),3]<-inprod(pz[k,t,],tr[k,t,,3])*cp[k,(8*(t+1)),3]
-    pz[k,(t+1),4]<-inprod(pz[k,t,],tr[k,t,,4])*cp[k,(8*(t+1)),4]
-    BO[k,(t+1)]<-sum(pz[k,(t+1),3:4])/sum(pz[k,(t+1),1:4])
-    }
-    }
-    
-    for (k in 1:158){
-    lik[k]<-sum(pz[k,22,])
-    one[k]~dbern(lik[k])
-    }
-    }
-    
+  }
+  
+  for(k in 1:158){
+    lik[k] <- sum(pz[k,22,])
+    one[k] ~ dbern(lik[k])
+  }
+}
     ",fill=TRUE)
 sink()    
 
 #-----------------------------------------------------------------------------#
+owls_JM.data <- list(Y = array(Y, dim = c(dim(Y)[1], dim(Y)[2])), 
+                     RF = array(as.vector(unlist(RF)), dim = c(dim(RF)[1], dim(RF)[2])),
+                     one = rep(1,158),
+                     FOR = array(as.vector(unlist(FOR)), dim = c(dim(FOR)[1], dim(FOR)[2])),
+                     pX = array(pX, dim = c(dim(pX)[1], dim(pX)[2], dim(pX)[3])))
 
+owls_JM.par <- c('pBO_b', 'pNSO_b', 'psi0_BO', 'psi0_NSO', 'gamNSO_b',
+                 'epsNSO_b', 'epsNSO_int', 'gamNSO_int', 'gamBO_int', 
+                 'epsBO_int', 'gamBO_b', 'epsBO_b')
 
-owls_JM.data<-list (Y=array(Y,dim=c(dim(Y)[1],dim(Y)[2])),RF=array(as.vector(unlist(RF)),dim=c(dim(RF)[1],dim(RF)[2])), one=rep(1,158),
-                    FOR=array(as.vector(unlist(FOR)),dim=c(dim(FOR)[1],dim(FOR)[2])),pX=array(pX,dim=c(dim(pX)[1],dim(pX)[2],dim(pX)[3])))
+owls_JM.out <- jags.parallel(owls_JM.data, inits = NULL, owls_JM.par,
+                             ".\\JAGS_Marginalized_owls.txt", n.chains = 3,
+                             n.iter = 10)
 
-owls_JM.par<-c('pBO_b','pNSO_b','psi0_BO','psi0_NSO','gamNSO_b','epsNSO_b','epsNSO_int','gamNSO_int','gamBO_int','epsBO_int','gamBO_b','epsBO_b')
-
-owls_JM.out<- jags.parallel(owls_JM.data,inits=NULL,owls_JM.par,".\\JAGS_Marginalized_owls.txt",n.chains = 3,n.iter=10)
-
-
-###############################################################################
+#-----------------------------------------------------------------------------#
 ###############################################################################
 #              Dynamic two-species occupancy model with autologistic effects (Barred owls and Northern Spotted owls)
 #
