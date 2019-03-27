@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Oct 18
+#                                                                     Spring 19
 #  Fitting a Multi-state version of a CJS model to the RBT data 
 #  Marginalized Stan version
 #
@@ -15,6 +15,8 @@
 library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())  
+
+setwd("U:/Desktop/Fish_Git/Marginalized")
 
 source(paste0(getwd(),"/Functions.R"), chdir = F)
 
@@ -32,7 +34,6 @@ sumFR = collapse.ch(CH)[[2]]
 get.first <- function(x) min(which(x != 0))
 sumf <- apply(tmpCH, 1, get.first)
 
-#
 sumCH = tmpCH
 sumCH[sumCH[,] == 0] = 2
 
@@ -40,7 +41,7 @@ NsumCH = nrow(sumCH)         # number of capture histories
 n.occasions = ncol(sumCH)    # number of sampling occasions
 
 # Catch (for the N versions)
-catch = colSums(CH)
+catch = colSums(CH)[2:18]
 
 #-----------------------------------------------------------------------------#
 # working with the Stan model in a seperate tab... see "Stan_M...stan"
@@ -163,7 +164,7 @@ sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
 # MCMC settings
 ni = 1000
 nt = 1
-nb = 500
+nb = 500 
 nc = 3
 
 
@@ -173,7 +174,7 @@ SM.t2 <- stan("Stan_Marginalized_Time_N.stan",
            # SM <- stan(fit = SM,
            data = sm.data,
            pars = sm.params,
-           control = list(adapt_delta = .85),
+           # control = list(adapt_delta = .85),
            # control = list(max_treedepth = 14),
            # control = list(max_treedepth = 15, adapt_delta = .925),
            # chains = nc, iter = ni, warmup = nb, thin = nt, seed = 1) 
@@ -181,8 +182,7 @@ SM.t2 <- stan("Stan_Marginalized_Time_N.stan",
 # t2 <- proc.time()
 
 SM.t2
-trace_plots(SM.t2, "N", 1:6, same.scale = TRUE)
-trace_plots(SM.t2, "N", 7:13)
+stan_trace(SM.t2, "N", 1:18, same.scale = TRUE)
 
 #-----------------------------------------------------------------------------#
 # variational inference
