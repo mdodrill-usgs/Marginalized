@@ -1,16 +1,15 @@
 ###############################################################################
-#                                                                        Oct 18
+#                                                                     Spring 19
 #  Fitting a multi-state version of a CJS model to the RBT data 
 #  Discrete JAGS version - fixed time effects
 #
 #  Notes:
 #  * 
 #
-#  To do: 
-#  * 
-#
 ###############################################################################
 library(R2jags)
+setwd("U:/Desktop/Fish_Git/Marginalized")
+
 source(paste0(getwd(),"/Functions.R"), chdir = F)
 
 setwd(paste0(getwd(), '/Application_1'))
@@ -96,7 +95,7 @@ print(JD.out, digits = 3)
 library(foreach)
 library(doParallel)
 
-n.core = 3  # really n.core * 3
+n.core = 5  # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -107,11 +106,7 @@ cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
 all.t1 = proc.time()
 n.runs = 10
 
-# my.n.iter = c(10, 15)
-# my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = c(12000,14000,18000,20000)
 my.n.iter = c(11000,13000,15000,16000,17000,19000)
-# my.n.iter = c(20000)
 
 big.fit.list = list()
 
@@ -159,19 +154,19 @@ print(round(time.taken,2))
 all.t2 = proc.time()
 stopCluster(cl1)  # close the clusters
 
-
 length(out)
 length(out[[1]])
 
 all.out = do.call('c', out)
 length(all.out)
 
-# tmp = run.times(all.out)
+tmp = run.times(all.out)
+tmp
 
-all.jags.d.time.3 = all.out
+all.jags.d.time.5 = all.out
 
-# rm(list=setdiff(ls(), "all.jags.d.time.3"))
+rm(list=setdiff(ls(), "all.jags.d.time.5"))
 
-# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/JAGS_D_Time_3.RData")
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/JAGS_D_Time_5.RData")
 #-----------------------------------------------------------------------------#
 # end
