@@ -1,5 +1,5 @@
 ###############################################################################
-#                                                                        Oct 18
+#                                                                     Spring 19
 #  Fitting a multi-state version of a CJS model to the RBT data 
 #  Marginalized WinBUGS version - fixed time effects
 #
@@ -74,9 +74,9 @@ model{
     ", fill = TRUE)
 sink() 
 #-----------------------------------------------------------------------------#
-JM.data <- list(NS = NS, Nint = Nint, S = S,
+WM.data <- list(NS = NS, Nint = Nint, S = S,
                 sumf = sumf, FR = FR, ones = ones)
-JM.par <- c('phi', 'p')
+WM.par <- c('phi', 'p')
 
 ni <- 10
 nt <- 1
@@ -84,22 +84,11 @@ nb <- 5
 
 # be explicit on the call to 'bugs', as the names are same for both R2WinBUGS and R2OpenBUGS
 t1 <- proc.time()
-JM.out <- R2WinBUGS::bugs(JM.data, inits = NULL, JM.par, "WinBUGS_Marginalized_Time.WinBUGS",
+WM.out <- R2WinBUGS::bugs(WM.data, inits = NULL, WM.par, "WinBUGS_Marginalized_Time.WinBUGS",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 t2 <- proc.time()
 
-print(JM.out, digits = 3)
-
-#--------------------------------------
-# t1 <- proc.time()
-# JM.out <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-#                         n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb,
-#                         export_obj_names = c("ni", "nt", "nb"))
-# 
-# t2 <- proc.time()
-# 
-# print(JM.out, digits = 3)
-
+print(WM.out, digits = 3)
 
 #-----------------------------------------------------------------------------#
 library(foreach)
@@ -116,11 +105,7 @@ cllibs <- clusterEvalQ(cl1, c(library(R2WinBUGS)))
 all.t1 = proc.time()
 n.runs = 10
 
-# my.n.iter = c(10, 15)
 my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = rep(2000, 5)
-# my.n.iter = rep(10, 10)
-# my.n.iter = my.n.iter[1:10]
 
 big.fit.list = list()
 
@@ -145,22 +130,6 @@ out <- foreach(j = seeds) %:%
 
     t1 <- proc.time()
 
-    # my.env = environment()
-
-    # JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                       jags.seed = seed, envir = my.env)
-
-    # JM.t <- R2WinBUGS::bugs(JM.data, inits = NULL, JM.par, "WinBUGS_Marginalized_Time.WinBUGS",
-    #                           n.chains = 3, n.iter = iter.in, n.thin = nt,
-    #                         bugs.seed = seed)
-    
-    # t2 <- proc.time()
-    # 
-    # attr(JM.t, 'time') <- (t2 - t1)[3]
-    # 
-    # JM.t
-    
     result <- tryCatch({
       out <- R2WinBUGS::bugs(JM.data, inits = NULL, JM.par, "WinBUGS_Marginalized_Time.WinBUGS",
                              n.chains = 3, n.iter = iter.in, n.thin = nt,
@@ -184,14 +153,12 @@ out <- foreach(j = seeds) %:%
   }
 #--------------------------------------
 
-
 end.time = Sys.time()
 time.taken = end.time - start.time
 print(round(time.taken,2))
 
 all.t2 = proc.time()
 stopCluster(cl1)  # close the clusters
-
 
 length(out)
 length(out[[1]])
@@ -205,6 +172,6 @@ all.bugs.m.time.1 = all.out
 
 rm(list=setdiff(ls(), "all.bugs.m.time.1"))
 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_M_Time.RData")
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/BUGS_M_Time.RData")
 
 #-----------------------------------------------------------------------------#
