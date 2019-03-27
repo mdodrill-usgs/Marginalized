@@ -2,7 +2,11 @@
 
 # add functions
 
-# need notes about setting time 
+# need notes about setting time for summary function to work
+
+# add mcmc settings that are described in paper
+
+# add additional code from CY...
 
 
 
@@ -512,4 +516,120 @@ WM.par <- c('phi', 'p')
 WM.out <- R2WinBUGS::bugs(WM.data, inits = NULL, WM.par, "WinBUGS_Marginalized_Time.WinBUGS",
                n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
 
+#-----------------------------------------------------------------------------#
+###############################################################################
+#                                                                     Spring 19
+#  Fitting a Multi-state version of a CJS model to the RBT data 
+#  Marginalized Stan version
+#
+#  Notes:
+#  * Need to set directory for data
+#  * Need to supply JAGS/WinBUGS/Stan settings
+#
+###############################################################################
+library(rstan)
+# Stan options
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())  
+
+# data.dir = paste0(getwd(), "/Data")
+CH = as.matrix(read.table(file = paste0(data.dir, "/RBT_Capture_History.txt"),
+                          header = FALSE, sep = "\t"))
+#-----------------------------------------------------------------------------#
+# format data for model fitting
+tmpCH = collapse.ch(CH)[[1]]
+sumFR = collapse.ch(CH)[[2]]
+
+# Create vector with occasion of marking
+get.first <- function(x) min(which(x != 0))
+sumf <- apply(tmpCH, 1, get.first)
+
+sumCH = tmpCH
+sumCH[sumCH[,] == 0] = 2
+
+NsumCH = nrow(sumCH)         # number of capture histories 
+n.occasions = ncol(sumCH)    # number of sampling occasions
+
+# Catch (for the N versions)
+catch = colSums(CH)[2:18]
+
+#-----------------------------------------------------------------------------#
+# Some may prefer to work with the Stan model in a seperate tab within Rstudio,
+# but the model code is included here for consistency. Note: '//' is for comments
+# in Stan
+
+sink("Stan_Marginalized_Time.stan")
+cat("
+// CJS Model with time varying survival (s) and capture probability (p)
+
+data{
+  int<lower = 1> NsumCH;
+  int<lower = 1> n_occasions;
+  int<lower = 1, upper = 2> sumCH[NsumCH, n_occasions];
+  int<lower = 1> sumf[NsumCH];
+  int<lower = 1> sumFR[NsumCH];
+}
+
+parameters{
+  real<lower = 0, upper = 1> s[n_occasions - 1];   // 3 month survivals 
+  real<lower = 0, upper = 1> p[n_occasions - 1];   // capture probability
+}
+
+transformed parameters{
+  simplex[2] tr[2,n_occasions - 1];
+  simplex[2] pmat[2,n_occasions - 1];
+  
+  for(k in 1:n_occasions - 1){
+    tr[1,k,1] = s[k];
+    tr[1,k,2] = (1 - s[k]);
+    tr[2,k,1] = 0;
+    tr[2,k,2] = 1;
+    
+    pmat[1,k,1] = p[k];
+    pmat[1,k,2] = (1 - p[k]);
+    pmat[2,k,1] = 0;
+    pmat[2,k,2] = 1;
+  }
+}
+
+model{
+  vector[2] pz[n_occasions];
+  
+  p ~ uniform(0,1);
+  
+  for(i in 1:NsumCH){  
+    pz[sumf[i],1] = 1;
+    pz[sumf[i],2] = 0;
+    
+    for(k in (sumf[i] + 1):n_occasions){ 
+      pz[k,1] = pz[k-1,1] * tr[1,k-1,1] * pmat[1,k-1,sumCH[i,(k)]];
+      pz[k,2] = (pz[k-1, 1] * tr[1,k-1,2] + pz[k-1, 2]) * pmat[2,k-1,sumCH[i,(k)]];
+    }  
+    
+    target += sumFR[i] * log(sum(pz[n_occasions])); 
+  }
+}
+
+    ", fill = TRUE)
+sink()
+
+#-----------------------------------------------------------------------------#
+# Time (occasion) specific
+sm.params <- c("s", "p")
+
+sm.data <- list(NsumCH = NsumCH, n_occasions = n.occasions, sumCH = sumCH,
+                sumf = sumf, sumFR = sumFR)
+
+# MCMC settings
+# ni = 1000
+# nt = 1
+# nb = 500
+# nc = 3
+
+# Call Stan from R 
+SM.t <- stan("Stan_Marginalized_Time.stan",
+              data = sm.data,
+              pars = sm.params,
+              control = list(adapt_delta = .85),
+              chains = nc, iter = ni, thin = nt) 
 #-----------------------------------------------------------------------------#
