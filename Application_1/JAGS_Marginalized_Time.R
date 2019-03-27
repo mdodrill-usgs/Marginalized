@@ -1,12 +1,9 @@
 ###############################################################################
-#                                                                        Oct 18
+#                                                                     Spring 19
 #  Fitting a multi-state version of a CJS model to the RBT data 
-#        Marginalized JAGS version - fixed time effects
+#  Marginalized JAGS version - fixed time effects
 #
 #  Notes:
-#  * 
-#
-#  To do: 
 #  * 
 #
 ###############################################################################
@@ -116,9 +113,7 @@ cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
 all.t1 = proc.time()
 n.runs = 10
 
-# my.n.iter = c(10, 15)
 my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = rep(2000, 5)
 
 big.fit.list = list()
 
@@ -158,14 +153,12 @@ out <- foreach(j = seeds) %:%
   } 
 #--------------------------------------
 
-
 end.time = Sys.time()
 time.taken = end.time - start.time
 print(round(time.taken,2))
 
 all.t2 = proc.time()
 stopCluster(cl1)  # close the clusters
-
 
 length(out)
 length(out[[1]])
@@ -179,6 +172,5 @@ all.jags.m.time.1 = all.out
 
 rm(list=setdiff(ls(), "all.jags.m.time.1"))
 
-
-
 #-----------------------------------------------------------------------------#
+# End
