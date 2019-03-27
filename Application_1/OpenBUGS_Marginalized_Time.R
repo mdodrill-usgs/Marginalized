@@ -1,10 +1,10 @@
 ###############################################################################
-#                                                                        Nov 18
+#                                                                     Spring 19
 #  Fitting a multi-state version of a CJS model to the RBT data 
 #  Marginalized OpenBUGS version - fixed time effects
 #
 #  Notes:
-#  * Check out 'dclone' - run OpenBUGS and WinBUGS in parallel
+#  * 
 #
 #  To do: 
 #  * 
@@ -74,9 +74,9 @@ model{
     ", fill = TRUE)
 sink() 
 #-----------------------------------------------------------------------------#
-JM.data <- list(NS = NS, Nint = Nint, S = S,
+OM.data <- list(NS = NS, Nint = Nint, S = S,
                 sumf = sumf, FR = FR, ones = ones)
-JM.par <- c('phi', 'p')
+OM.par <- c('phi', 'p')
 
 ni <- 100
 nt <- 1
@@ -84,13 +84,11 @@ nb <- 50
 
 # be explicit on the call to 'bugs', as the names are same for both R2WinBUGS and R2OpenBUGS
 t1 <- proc.time()
-JM.out <- R2OpenBUGS::bugs(JM.data, inits = NULL, JM.par, "OpenBUGS_Marginalized_Time.OpenBUGS",
-               # n.chains = 3, n.iter = ni, n.thin = nt, n.burnin = nb)
+OM.out <- R2OpenBUGS::bugs(OM.data, inits = NULL, OM.par, "OpenBUGS_Marginalized_Time.OpenBUGS",
                n.chains = 3, n.iter = ni, n.thin = nt)
 t2 <- proc.time()
 
 print(JM.out, digits = 3)
-
 
 #-----------------------------------------------------------------------------#
 library(foreach)
@@ -107,9 +105,7 @@ cllibs <- clusterEvalQ(cl1, c(library(R2OpenBUGS)))
 all.t1 = proc.time()
 n.runs = 10
 
-# my.n.iter = c(10, 15)
 my.n.iter = seq(0,10000,500)[- 1]
-# my.n.iter = rep(100, 5)
 
 big.fit.list = list()
 
@@ -138,10 +134,6 @@ out <- foreach(j = seeds) %:%
 
     my.env = environment()
 
-    # JM.t <- jags.parallel(JM.data, inits = NULL, JM.par, "JAGS_Marginalized_Time.jags",
-    #                       n.chains = 3, n.iter = iter.in, export_obj_names = c("iter.in", "seed"),
-    #                       jags.seed = seed, envir = my.env)
-    
     JM.t <- R2OpenBUGS::bugs(JM.data, inits = NULL, JM.par, "OpenBUGS_Marginalized_Time.OpenBUGS",
                                n.chains = 3, n.iter = iter.in, n.thin = nt,
                              bugs.seed = seed)
@@ -154,7 +146,6 @@ out <- foreach(j = seeds) %:%
 
   }
 #--------------------------------------
-
 
 end.time = Sys.time()
 time.taken = end.time - start.time
@@ -176,6 +167,6 @@ all.Open.m.time.1 = all.out
 
 rm(list=setdiff(ls(), "all.Open.m.time.1"))
 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/Open_M_Time.RData")
+# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/Open_M_Time.RData")
 
 #-----------------------------------------------------------------------------#
