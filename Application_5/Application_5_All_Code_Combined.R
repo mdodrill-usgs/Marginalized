@@ -320,3 +320,211 @@ params <- c('psi_mean', 'p_mean', 'rho', 'sigma_v', 'sigma_u', 'sigma_alpha1',
 JM_Cocc <- jags.parallel(JM_data, inits = JM_inits, params, 'Cocc_JM.jags',
                          n.chains = 3, n.iter = 10)
 #-----------------------------------------------------------------------------#
+###############################################################################
+#                                                                     Spring 19
+#  Dynamic Community Occupancy Models - Sky Islands  
+#  Marginalized Stan version 
+#
+#  Notes:
+#  * Need to set directory for data
+#  * Need to supply JAGS/WinBUGS/Stan settings
+#
+###############################################################################
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())  
+
+# data.dir = paste0(getwd(), "/Data/")
+dat = read.csv(paste0(data.dir, "ntmb_CM_1991_till_1995.csv"))
+
+# dimensions: species, points, years
+nspp = 149
+nsites = 92
+nyears = 5  # 1991, 1992, 1993, 1994, 1995 
+years = seq(1991, 1995, 1)
+nsess = 3
+
+# fill the data array
+Y = array(NA, dim = c(nspp, nsites, nyears))
+for(i in 1:5){
+  Y[,,i] = as.matrix(dat[which(dat[,2] == years[i]),3:94])
+}
+
+visit <- ifelse(is.na(Y[1,,1]) == TRUE, 2, 1)
+sY <- ifelse(is.na(Y) == TRUE, 1, Y + 1)
+
+# habitat covariate (dimensions 92 pts) 
+hab = c(5L, 5L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 5L, 7L, 7L, 3L, 5L, 5L, 
+        5L, 3L, 3L, 5L, 5L, 5L, 3L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 
+        4L, 4L, 3L, 4L, 4L, 5L, 5L, 5L, 5L, 5L, 3L, 5L, 3L, 3L, 3L, 3L, 
+        3L, 5L, 5L, 5L, 2L, 2L, 2L, 4L, 2L, 3L, 5L, 4L, 5L, 4L, 4L, 3L, 
+        4L, 5L, 4L, 5L, 4L, 3L, 3L, 3L, 4L, 4L, 5L, 4L, 4L, 1L, 4L, 3L, 
+        5L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 6L, 6L, 7L, 7L, 7L)
+#-----------------------------------------------------------------------------#
+sink("Cocc_SM.stan")
+cat("
+data{
+  int<lower = 1> nspp;
+  int<lower = 1> nsess;
+  int<lower = 1> nsites;
+  int<lower = 1> nyears;
+  int<lower = 1> NuDH; 
+  int<lower = 1> nhab; 
+  int<lower = 1> sY2 [NuDH,nyears]; 
+  int<lower = 1> visit2 [NuDH]; 
+  int<lower = 1> hab2 [NuDH]; 
+  int<lower = 1> spp [NuDH];
+  int<lower = 1> FR [NuDH];
+  int<lower = 1> lookup[nspp,nsites];
+}
+
+parameters{
+  real<lower = 0, upper = 1> psi_mean;
+  real<lower = 0, upper = 1> p_mean;
+  real<lower = 0, upper = 1> alpha1_mean;
+  real<lower = 0, upper = 5> sigma_alpha1;
+  real<lower = 0, upper = 5> sigma_alpha2;
+  real<lower = 0, upper = 5> sigma_u;
+  real<lower = 0, upper = 5> sigma_v;
+  real<lower = -1, upper = 1> rho;
+  vector<lower = 0, upper = 1> [nspp] a1;
+  vector [nspp] alpha_dev1;
+  vector [nspp] alpha_dev0;
+  vector [nspp] alpha_dev2 [7];
+  real beta_dev0 [nspp];
+}
+
+transformed parameters{
+  real beta;
+  real alpha;
+  real alpha1_mu;
+  real sigma_eta;
+  real Z [NuDH,nyears];
+  real p [nspp];
+  simplex [2] z0 [nspp];
+  real po [nspp,2,(nsess + 1),2];
+  real tr [nspp,nhab,2,2];
+  real pz [NuDH,nyears,2];
+  
+  beta = logit(psi_mean);
+  alpha = logit(p_mean);
+  alpha1_mu = logit(alpha1_mean);
+  sigma_eta = sigma_v * ((1 - rho ^ 2) ^ 0.5);
+  
+  for(i in 1:(nspp)){
+    z0[i,2] = a1[i];
+    z0[i,1] = 1 - a1[i];
+    po[i,1,1,2] = 1;
+    po[i,2,1,2] = 1;
+    po[i,1,1,1] = 1;
+    p[i] = inv_logit(alpha + rho * sigma_v * alpha_dev0[i] + sigma_eta * beta_dev0[i]);
+    for(j in 1:nsess){
+      po[i,1,(j + 1),1] = 0;
+      po[i,1,(j + 1),2] = 0;
+      po[i,2,(j + 1),2] = 0;			
+      po[i,2,(j + 1),1] = (p[i] ^ j) * (1 - p[i]) ^ (nsess - j);
+    }
+    po[i,2,1,1] = (1 - p[i]) ^ (nsess);
+    for(k in 1:nhab){
+      tr[i,k,2,2] = inv_logit(beta + sigma_u * alpha_dev0[i] + alpha1_mean + sigma_alpha1 * alpha_dev1[i] + sigma_alpha2 * alpha_dev2[k,i]);
+      tr[i,k,1,2] = inv_logit(beta + sigma_u * alpha_dev0[i] + sigma_alpha2 * alpha_dev2[k,i]);
+      tr[i,k,1,1] = 1 - tr[i,k,1,2];
+      tr[i,k,2,1] = 1 - tr[i,k,2,2];
+    }
+  }
+  
+  for(i in 1:NuDH){
+    pz[i,1,1] = (z0[spp[i],1] * tr[spp[i],hab2[i],1,1] + z0[spp[i],2] * tr[spp[i],hab2[i],2,1]) *
+      po[spp[i],1,sY2[i,1],visit2[i]];
+    pz[i,1,2] = (z0[spp[i],1] * tr[spp[i],hab2[i],1,2] + z0[spp[i],2] * tr[spp[i],hab2[i],2,2]) *
+      po[spp[i],2,sY2[i,1],visit2[i]];
+    Z[i,1] = pz[i,1,2] / (pz[i,1,1] + pz[i,1,2]);
+    for(t in 1:(nyears - 1)){
+      pz[i,(t + 1),1] = (pz[i,t,1] * tr[spp[i],hab2[i],1,1] + pz[i,t,2] * tr[spp[i],hab2[i],2,1]) * 
+        po[spp[i],1,sY2[i,(t + 1)],1];
+      pz[i,(t + 1),2] = (pz[i,t,1] * tr[spp[i],hab2[i],1,2] + pz[i,t,2] * tr[spp[i],hab2[i],2,2]) * 
+        po[spp[i],2,sY2[i,(t + 1)],1];
+      Z[i,(t + 1)] = pz[i,(t + 1),2] / (pz[i,(t + 1),1] + pz[i,(t + 1),2]);
+    }
+  }
+}
+
+model{	
+  alpha_dev1 ~ normal(0, 1);
+  alpha_dev0 ~ normal(0, 1);
+  
+  for(h in 1:7){
+    alpha_dev2[h] ~ normal(0, 1);
+  }
+  
+  beta_dev0 ~ normal(0, 1);
+  
+  for(i in 1:NuDH){
+    target += FR[i] * log(sum(pz[i,nyears,]));
+  }
+}
+
+generated quantities{
+  int SR [nsites,nyears];
+  int temp [nspp];  
+  
+  for(k in 1:nsites){  
+    for(t in 1:nyears){
+      for(i in 1:nspp){
+        temp[i] = bernoulli_rng(Z[lookup[i,k],t]);
+      }
+      SR[k,t] = sum(temp);
+    }
+  }
+}
+
+    ", fill = TRUE)
+sink()
+#-----------------------------------------------------------------------------#
+pasted <- function(x){
+  paste0(x[1], x[2], x[3], x[4], x[5], x[6], x[7], collapse = "")
+}
+
+unpaste <- function(x){
+  as.numeric(c(substr(x, 1, 1), substr(x, 2, 2), substr(x, 3, 3),
+               substr(x, 4, 4), substr(x, 5, 5), substr(x, 6, 6), substr(x, 7, 7)))
+}
+
+FR <- numeric()
+spp <- numeric()
+sY2 <- rep(NA, 5)
+visit2 <- numeric()
+hab2 <- numeric()
+lookup <- matrix(NA, nspp, nsites)
+temp4 <- 0
+
+for(S in 1:nspp){
+  temp <- apply(cbind(sY[S,,], visit,hab), 1, pasted)
+  temp2 <- table(temp)
+  FR <- c(FR, as.numeric(temp2))
+  spp <- c(spp, rep(S, length(temp2)))
+  for(j in 1:length(temp2)){
+    temp3 <- unpaste(names(temp2[j]))
+    sY2 <- rbind(sY2, temp3[1:5])
+    visit2 <- c(visit2, temp3[6])
+    hab2 <- c(hab2, temp3[7])
+  }
+  lookup[S,] <- match(temp, names(temp2)) + temp4
+  temp4 <- temp4 + length(temp2)
+}
+
+sY2 <- sY2[-1,]
+
+#-----------------------------------------------------------------------------#
+SM_data <- list(nspp = nspp, nsess = nsess, nsites = nsites, nyears = nyears, 
+              hab2 = hab2, sY2 = sY2, visit2 = visit2, nhab = 7, NuDH = length(FR), 
+              spp = spp, FR = FR, lookup = lookup)
+
+params <- c('psi_mean', 'p_mean', 'rho', 'sigma_v', 'sigma_u', 'sigma_alpha1',
+            'sigma_alpha2', 'alpha1_mean', 'SR')
+
+SM_Cocc <- stan("Cocc_SM.stan",
+                data = SM_data,
+                pars = params,
+                chains = 1, iter = 1000) 
+#-----------------------------------------------------------------------------#
