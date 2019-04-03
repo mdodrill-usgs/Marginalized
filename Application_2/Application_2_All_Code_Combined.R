@@ -1,8 +1,6 @@
 
-# check the MCMC setting vs the paper...
-
-# several comments CY should check out...
-
+# To do:
+# add mcmc settings that are described in paper
 
 ###############################################################################
 #                                                                     Spring 19

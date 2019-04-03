@@ -1,15 +1,245 @@
 
-
-# add functions
-
-# need notes about setting time for summary function to work
-
+# To do:
 # add mcmc settings that are described in paper
+# add some general notes on the structure of things
 
-# add additional code from CY...
+###############################################################################
+#                                                                     Spring 19
+#  Functions to:
+#  1). process input data for model fitting 
+#  2). process/extract results
+#
+###############################################################################
+#-----------------------------------------------------------------------------#
+# Function to create the matrix of latent state z 
+known.state.cjs <- function(ch){
+  state <- ch
+  for(i in 1:dim(ch)[1]){
+    n1 <- min(which(ch[i,] == 1))
+    n2 <- max(which(ch[i,] == 1))
+    state[i,n1:n2] <- 1
+    state[i,n1] <- NA
+  }
+  state[state == 0] <- NA
+  return(state)
+}
 
+#-----------------------------
+# Function to create a matrix of initial values for latent state z
+cjs.init.z <- function(ch, f){
+  for(i in 1:dim(ch)[1]){
+    if (sum(ch[i,]) == 1) next
+    n2 <- max(which(ch[i,] == 1))
+    ch[i,f[i]:n2] <- NA
+  }
+  for(i in 1:dim(ch)[1]){
+    ch[i,1:f[i]] <- NA
+  }
+  return(ch)
+}
 
+#-----------------------------------------------------------------------------#
+# Function to collapse capture history matrix into unique histories and the
+# frequency of these unique histories. Returns a list: first element is the
+# collapsed capture histories, second element is the frequency.
 
+collapse.ch <- function(ch){
+  ch.char = apply(ch, 1, function(x) paste(x, collapse = ","))
+  
+  ch.sum.out = t(sapply(strsplit(names(table(ch.char)), split = ","), as.numeric))
+  fr.out = as.numeric(as.vector(table(ch.char)))
+  
+  return(list(ch.sum.out, fr.out))
+}
+
+#-----------------------------------------------------------------------------#
+# Function to generate inits for z in JS model with data augmentation. From Kery
+# and Schaub 2012
+
+js.multistate.init <- function(ch, nz){
+  ch[ch == 2] <- NA
+  state <- ch
+  for (i in 1:nrow(ch)){
+    n1 <- min(which(ch[i,] == 1))
+    n2 <- max(which(ch[i,] == 1))
+    state[i,n1:n2] <- 2
+  }
+  state[state == 0] <- NA
+  get.first <- function(x) min(which(!is.na(x)))
+  get.last <- function(x) max(which(!is.na(x)))   
+  f <- apply(state, 1, get.first)
+  l <- apply(state, 1, get.last)
+  for (i in 1:nrow(ch)){
+    state[i,1:f[i]] <- 1
+    if(l[i] != ncol(ch)) state[i, (l[i] + 1):ncol(ch)] <- 3
+    state[i, f[i]] <- 2
+  }   
+  state <- rbind(state, matrix(1, ncol = ncol(ch), nrow = nz))
+  # change with the book code -- Need first col to be NA !
+  state[,1] <- NA  
+  return(state)
+}
+
+#-----------------------------------------------------------------------------#
+# Function to return summary stats for fitted model objects. 
+# Added 'ignore' argument, for parms that are set, but your still tracking, but
+# want to exclude from the summary (see BNT model). Only for Stan and JAGS. 
+# The function takes a list of model fits (WinBUGS, JAGS, Stan) for the first
+# argument.  For the timing to work correctly, the time taken to fit a model
+# must be appended to the model fit object, as an attribute, for instance:
+# t1 <- proc.time()
+# model.fit <- jags.parallel(...)
+# t2 <- proc.time()
+# attr(model.fit, 'time') <- (t2 - t1)[3]
+
+run.times = function(fit.list, ignore = NULL){
+  
+  out = data.frame(fitter = NA,
+                   iterations = NA,
+                   min.n.eff = NA,
+                   min.n.eff.coda = NA,
+                   med.n.eff = NA,
+                   med.n.eff.coda = NA,
+                   run.time = NA,
+                   model = NA,
+                   r.hat.count = NA)
+  
+  for(i in seq_along(fit.list)){
+    
+    if(any(class(fit.list[[i]]) == "stanfit")){
+      
+      out[i,]$fitter = "Stan"
+      
+      # get the n.iter
+      out[i,]$iterations = fit.list[[i]]@stan_args[[1]]$iter
+      
+      if(is.null(ignore) == FALSE){
+        # get the n.eff
+        tmp.n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
+        n.eff = tmp.n.eff[which(!names(tmp.n.eff) %in% ignore)]
+        
+        tmp.n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        n.eff.coda = tmp.n.eff.coda[which(!names(tmp.n.eff.coda) %in% ignore)]
+        
+        # count of Rhat over 1.1 (this includes the like/deviance)
+        tmp.tmp.r.hat = rstan::summary(fit.list[[i]])$summary[,"Rhat"]
+        tmp.r.hat = tmp.tmp.r.hat[which(!names(tmp.tmp.r.hat) %in% ignore)]
+      } else {
+        # get the n.eff
+        n.eff = rstan::summary(fit.list[[i]])$summary[,"n_eff"]
+        n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        
+        # count of Rhat over 1.1 (this includes the like/deviance)
+        tmp.r.hat = rstan::summary(fit.list[[i]])$summary[,"Rhat"]
+      }
+      
+      # minus 1 to cut out the likelihood value (only n.eff for parms)
+      out[i,]$min.n.eff = min(n.eff[1:(length(n.eff) - 1)])
+      
+      out[i,]$min.n.eff.coda = min(n.eff.coda[2:length(n.eff.coda)])  # deviance is first here
+      
+      # median n.eff
+      out[i,]$med.n.eff = median(n.eff[1:(length(n.eff) - 1)])
+      
+      out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])  # deviance is first here
+      
+      # model name
+      out[i,]$model = fit.list[[i]]@model_name
+      
+      out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+      
+    }
+    
+    # had to add 'any' b/c jags in parallel has two classes, one of which will be 'rjags'
+    if(any(class(fit.list[[i]]) == "rjags")){  
+      out[i,]$fitter = "JAGS"
+      
+      # get the n.iter
+      out[i,]$iterations = fit.list[[i]]$n.iter
+      
+      if(is.null(ignore) == FALSE){
+        # get the n.eff
+        tmp.n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
+        # n.eff = tmp.n.eff[which(names(tmp.n.eff) != ignore)]
+        n.eff = tmp.n.eff[which(!names(tmp.n.eff) %in% ignore)]
+        
+        tmp.n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        # n.eff.coda = tmp.n.eff.coda[which(names(tmp.n.eff.coda) != ignore)]
+        n.eff.coda = tmp.n.eff.coda[which(!names(tmp.n.eff.coda) %in% ignore)]
+        
+        # count of Rhat over 1.1  (this includes the like/deviance)
+        tmp.tmp.r.hat = fit.list[[i]]$BUGSoutput$summary[,8]
+        # tmp.r.hat = tmp.tmp.r.hat[which(names(tmp.tmp.r.hat) != ignore)]
+        tmp.r.hat = tmp.tmp.r.hat[which(!names(tmp.tmp.r.hat) %in% ignore)]
+      } else {
+        # get the n.eff
+        n.eff = fit.list[[i]]$BUGSoutput$summary[,9]
+        n.eff.coda = coda::effectiveSize(organize(fit.list[[i]], mcmc.out = TRUE))
+        
+        # count of Rhat over 1.1  (this includes the like/deviance)
+        tmp.r.hat = fit.list[[i]]$BUGSoutput$summary[,8]
+      }
+      
+      # min n.eff - cut out the deviance value (only n.eff for parms)
+      out[i,]$min.n.eff = min(n.eff[2:length(n.eff)])
+      
+      out[i,]$min.n.eff.coda = min(n.eff.coda[2:length(n.eff.coda)])
+      
+      # median n, eff - cut out the deviance value (only n.eff for parms)
+      out[i,]$med.n.eff = median(n.eff[2:length(n.eff)])
+      
+      out[i,]$med.n.eff.coda = median(n.eff.coda[2:length(n.eff.coda)])
+      
+      out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+      
+      # model name
+      out[i,]$model = fit.list[[i]]$model.file
+    }
+    
+    if(any(class(fit.list[[i]]) == "bugs")){
+      out[i,]$fitter = "bugs"
+      
+      # get the n.iter
+      out[i,]$iterations = fit.list[[i]]$n.iter
+      
+      # get the n.eff
+      n.eff = fit.list[[i]]$summary[,9]
+      
+      f1 = coda::mcmc.list(lapply(1:fit.list[[i]]$n.chain, function(x) coda::mcmc(fit.list[[i]]$sims.array[,x,])))
+      
+      n.eff.coda = coda::effectiveSize(f1)
+      
+      # min n.eff - cut out the deviance value (only n.eff for parms), different than JAGS, deviance is at the end
+      out[i,]$min.n.eff = min(n.eff[1:length(n.eff)-1])
+      
+      out[i,]$min.n.eff.coda = min(n.eff.coda[1:length(n.eff.coda)-1])
+      
+      # median n.eff
+      out[i,]$med.n.eff = median(n.eff[1:length(n.eff)-1])
+      
+      out[i,]$med.n.eff.coda = median(n.eff.coda[1:length(n.eff.coda)-1])
+      
+      # model name
+      out[i,]$model = fit.list[[i]]$model.file
+      
+      # count of Rhat over 1.1  (this includes the like/deviance)
+      tmp.r.hat = fit.list[[i]]$summary[,8]
+      
+      out[i,]$r.hat.count = length(which(tmp.r.hat > 1.1))
+      
+    }
+    
+    # get time to fit model, stored as an attribute
+    out[i,]$run.time = ifelse(is.null(attr(fit.list[[i]], "time")), "NA", attr(fit.list[[i]], "time")) 
+  }
+  
+  # out$efficiency = out$min.n.eff / out$run.time  
+  out$efficiency = out$min.n.eff.coda / out$run.time  
+  # time required for min n.eff (coda) of 100
+  out$time.to.100 = (out$run.time / out$min.n.eff.coda) * 100
+  
+  return(out)
+}
 
 ###############################################################################
 #                                                                     Spring 19
