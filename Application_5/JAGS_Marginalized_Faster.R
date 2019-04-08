@@ -54,7 +54,7 @@ cat("
     a1[i] ~ dunif(0,1)
     z0[i,1]<-a1[i]
     z0[i,2]<-1-a1[i]
-    alpha1[i] ~ dnorm(alpha1_mean,tau_alpha1)
+    alpha1[i] ~ dnorm(alpha1_mu,tau_alpha1)
     for (h in 1:7){alpha2[i,h]~dnorm(0,tau_alpha2)}    
     alpha0[i] ~ dnorm(beta, tau_u)
     mu_eta[i] <- alpha + (rho*sigma_v/sigma_u)*(alpha0[i] - beta)
@@ -156,7 +156,7 @@ sY2 <- sY2[-1,]
 
 #-----------------------------------------------------------------------------#
 params <- c('psi_mean', 'p_mean', 'rho', 'sigma_v', 'sigma_u', 'sigma_alpha1',
-            'sigma_alpha2', 'alpha1_mean','SR')
+            'sigma_alpha2', 'alpha1_mean','SR', 'Z2')
 
 # JM_data = list('nspp' = nspp, 'nsites' = nsites, 'nsess' = nsess,
 #                'nyears' = nyears, 'hab' = hab, 'ones' = matrix(1, nrow = nspp, ncol = nsites),
@@ -176,7 +176,7 @@ t2 <- proc.time()
 library(foreach)
 library(doParallel)
 
-n.core = 10  # really n.core * 3
+n.core = 3  # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -185,9 +185,9 @@ registerDoParallel(cl1)
 cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
 
 all.t1 = proc.time()
-n.runs = 40
+n.runs = 3
 
-my.n.iter = c(5000)
+my.n.iter = c(10000)
 
 big.fit.list = list()
 
@@ -244,10 +244,10 @@ length(all.out)
 
 # tmp = run.times(all.out)
 # 
-all.jags.m.4 = all.out
+all.jags.m.5 = all.out
 # 
-rm(list=setdiff(ls(), "all.jags.m.4"))
+rm(list=setdiff(ls(), "all.jags.m.5"))
 # 
-save.image("U:/Desktop/Fish_Git/Marginalized/Application_5/working_runs/Cocc_JM_2_runs_4.RData")
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_5/working_runs/Cocc_JM_2_runs_5_test.RData")
 #-----------------------------------------------------------------------------#
 # end

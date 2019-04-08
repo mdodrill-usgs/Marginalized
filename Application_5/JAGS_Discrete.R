@@ -33,20 +33,27 @@ names5 = c('ntmb.CM.1995.csv')
 names = c(names1, names2, names3, names4, names5)
 
 for(q in 1:5){
-  Ymat1 = as.matrix(read.csv(paste0(data.dir,names[q]))[,2:93])
-  Y[,,q]=array(c(Ymat1),dim=c(dim(Y)[1],dim(Ymat1)[2]))
+  Ymat1 = as.matrix(read.csv(paste0(data.dir, names[q]))[,2:93])
+  Y[,,q] = array(c(Ymat1), dim = c(dim(Y)[1], dim(Ymat1)[2]))
 }
 
 # habitat covariate (dimensions 92 pts) 
-hab = as.matrix(read.csv(paste0(data.dir, 'habitat.CM.csv'), header = FALSE))[2:93,4] 
-hab = as.integer(hab)
+# hab = as.matrix(read.csv(paste0(data.dir, 'habitat.CM.csv'), header = FALSE))[2:93,4] 
+# hab = as.integer(hab)
+
+hab = c(5L, 5L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 5L, 7L, 7L, 3L, 5L, 5L, 
+        5L, 3L, 3L, 5L, 5L, 5L, 3L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 
+        4L, 4L, 3L, 4L, 4L, 5L, 5L, 5L, 5L, 5L, 3L, 5L, 3L, 3L, 3L, 3L, 
+        3L, 5L, 5L, 5L, 2L, 2L, 2L, 4L, 2L, 3L, 5L, 4L, 5L, 4L, 4L, 3L, 
+        4L, 5L, 4L, 5L, 4L, 3L, 3L, 3L, 4L, 4L, 5L, 4L, 4L, 1L, 4L, 3L, 
+        5L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 6L, 6L, 7L, 7L, 7L)
 #-----------------------------------------------------------------------------#
 sink("Cocc_JD.jags")
 cat("
-model {
+model{
   for(i in 1:(nspp)){
     a1[i] ~ dunif(0,1)
-    alpha1[i] ~ dnorm(alpha1_mean, tau_alpha1)
+    alpha1[i] ~ dnorm(alpha1_mu, tau_alpha1)
     
     for(h in 1:7){
       alpha2[i,h] ~ dnorm(0, tau_alpha2)
@@ -162,7 +169,7 @@ JD_inits = function() {
 }
 #-----------------------------------------------------------------------------#
 params <- c('psi_mean', 'p_mean', 'rho', 'sigma_v', 'sigma_u', 'sigma_alpha1',
-            'sigma_alpha2', 'alpha1_mean','SR')
+            'sigma_alpha2', 'alpha1_mean', 'SR', 'Z')
 
 JD_data = list('nspp' = nspp, 'nsites' = nsites, 'nsess' = nsess,
                'nyears' = nyears, 'hab' = hab, 'Y' = Y)
@@ -178,7 +185,7 @@ t2 <- proc.time()
 library(foreach)
 library(doParallel)
 
-n.core = 5  # really n.core * 3
+n.core = 3  # really n.core * 3
 
 cl1 = makeCluster(n.core) # number of cores you want to use
 registerDoParallel(cl1)
@@ -187,7 +194,7 @@ registerDoParallel(cl1)
 cllibs <- clusterEvalQ(cl1, c(library(R2jags)))
 
 all.t1 = proc.time()
-n.runs = 10
+n.runs = 3
 
 my.n.iter = c(50000)
 
@@ -245,12 +252,13 @@ length(out[[1]])
 all.out = do.call('c', out)
 length(all.out)
 
-# tmp = run.times(all.out)
+tmp = run.times(all.out)
+tmp
 
-# all.jags.d.time.3 = all.out
+all.jags.d.4 = all.out
 
-# rm(list=setdiff(ls(), "all.jags.d.time.3"))
+rm(list=setdiff(ls(), "all.jags.d.4"))
 
-# save.image("U:/Desktop/Fish_Git/Marginalized/Application_1/working_Runs/JAGS_D_Time_3.RData")
+save.image("U:/Desktop/Fish_Git/Marginalized/Application_5/working_runs/JD_Cocc_4_test.RData")
 #-----------------------------------------------------------------------------#
 # end
