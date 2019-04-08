@@ -175,7 +175,6 @@ print(owls_JD.out,digits=3)
 
 library(R2jags)
 
-#Get data:
 
 #Get data:
 owls.dat<-read.csv(".//owls.dat.csv")
