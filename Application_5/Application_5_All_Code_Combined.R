@@ -43,7 +43,7 @@ cat("
 model{
   for(i in 1:(nspp)){
     a1[i] ~ dunif(0, 1)
-    alpha1[i] ~ dnorm(alpha1_mean, tau_alpha1)
+    alpha1[i] ~ dnorm(alpha1_mu, tau_alpha1)
     
     for(h in 1:7){
       alpha2[i,h] ~ dnorm(0, tau_alpha2)
@@ -192,7 +192,7 @@ model{
     a1[i] ~ dunif(0, 1)
     z0[i,1] <- a1[i]
     z0[i,2] <- 1 - a1[i]
-    alpha1[i] ~ dnorm(alpha1_mean, tau_alpha1)
+    alpha1[i] ~ dnorm(alpha1_mu, tau_alpha1)
     for(h in 1:7){
       alpha2[i,h] ~ dnorm(0, tau_alpha2)
     }
@@ -422,7 +422,7 @@ transformed parameters{
     }
     po[i,2,1,1] = (1 - p[i]) ^ (nsess);
     for(k in 1:nhab){
-      tr[i,k,2,2] = inv_logit(beta + sigma_u * alpha_dev0[i] + alpha1_mean + sigma_alpha1 * alpha_dev1[i] + sigma_alpha2 * alpha_dev2[k,i]);
+      tr[i,k,2,2] = inv_logit(beta + sigma_u * alpha_dev0[i] + alpha1_mu + sigma_alpha1 * alpha_dev1[i] + sigma_alpha2 * alpha_dev2[k,i]);
       tr[i,k,1,2] = inv_logit(beta + sigma_u * alpha_dev0[i] + sigma_alpha2 * alpha_dev2[k,i]);
       tr[i,k,1,1] = 1 - tr[i,k,1,2];
       tr[i,k,2,1] = 1 - tr[i,k,2,2];
