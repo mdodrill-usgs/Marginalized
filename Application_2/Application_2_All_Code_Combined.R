@@ -14,55 +14,81 @@
 ###############################################################################
 library(R2jags)
 
-# Get data
-RF <-read.csv(".\\RF.csv", header = FALSE)
-FOR <- read.csv(".\\FOR.csv", header = FALSE)
-visited <- read.csv(".\\visited.csv", header = FALSE)
+#Get data:
+owls.dat<-read.csv(".//owls.dat.csv")
+
 
 #-----------------------------------------------------------------------------#
 # format data for model fitting:
+nmaxVisit<-8
+nYear<-22
+pX<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear,7))
+Y_BO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
+Y_NSO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
 
-# detection covariates: day, night, method1, method3, second half, and survey
-# length effects on BO detection
-pX <- array(NA, dim = c(158, 176, 7))
-pX[,,1] <- matrix(unlist(visited), nrow = dim(visited)[1], ncol = dim(visited)[2])
-pX[,,2] <- as.matrix(read.csv(".\\day.csv", header = FALSE))
-pX[,,3] <- as.matrix(read.csv(".\\night.csv", header = FALSE))
-pX[,,4] <- as.matrix(read.csv(".\\mtd1.csv", header = FALSE))
-pX[,,5] <- as.matrix(read.csv(".\\mtd3.csv", header = FALSE))
-pX[,1:88,6] <- 0
-pX[,89:176,6] <- 1
-pX[,,7] <- as.matrix(read.csv(".\\tott.csv", header = FALSE))
+#pX : Matrix of detection covariates
+#First dimension: Sites
+#Second dimension: Number of total visits across years (maximum number of visits per year is 8)
+#Third dimension: Covariates
+#pX[,,1] = (1/0); whether site was visited 
+#pX[,,2] = (1/0); 1 if visited during the daytime
+#pX[,,3] = (1/0); 1 if visited during the nightime
+#Note if pX[,,2]==0 & pX[,,3]==0 then visited during crepuscular time of day
+#pX[,,4] = (1/0); 1 if sampled using Method 1
+#pX[,,5] = (1/0); 1 if sampled using Method 2
+#Note if pX[,,4]==0 & pX[,,5]==0 then sampled using Method 3
+#pX[,,6] = (1/0); Whether visit occurred during the last half of the study
+#pX[,,7] = (continuous, standardized); Covariate describing time spent sampling
 
-# If site is not visited, change all covariates to zero:
-for(i in 1:158){
-  for(j in 1:176){
-    if(visited[i,j] == 0){pX[i,j,] <- 0}
-  }
-}
 
-owls <- as.matrix(read.csv(".\\owls.csv", header = FALSE))
-Y_BO <- ifelse(owls > 1, 1, 0)
-Y_NSO <- ifelse(owls == 1 | owls == 3,1,0)
-Y <- owls + 1
+for(i in 1:length(owls.dat[,1])){
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],1]<-owls.dat$Visited[i]
+  if(owls.dat$TOD[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],2]<-1}
+  if(owls.dat$TOD[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],3]<-1}
+  if(owls.dat$Method[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],4]<-1}
+  if(owls.dat$Method[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],5]<-1}
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],7]<-owls.dat$ttot[i]
+  Y_BO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$BO[i]
+  Y_NSO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$NSO[i]}
 
-# Matrix 'BO' is whether or not barred owls were detected at each site at least
-# once in each year
-BO <- numeric()
-for(i in 1:22){
-  BO <- cbind(BO, apply(Y_BO[,(i * 8-7):(i * 8)], 1, sum))
-}
+#Dummy variable for last half of the study:
+pX[,89:176,6]<-1
 
-1 -> BO[BO > 1]
+#If site is not visited, change all covariates to zero:
+for(i in 1:158){for(j in 1:176){ if(pX[i,j,1]==0){pX[i,j,]<-0}}}  
 
-# Matrix 'NSO' is whether or not spotted owls were detected at each site at
-# least once in each year
-NSO <- numeric()
-for(i in 1:22){
-  NSO <- cbind(NSO, apply(Y_NSO[,(i * 8-7):(i * 8)], 1, sum))
-}
+#Extract riparian forest (RF) and forest (FOR) covariates from owl.dat:
+RF<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+FOR<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
 
-1 -> NSO[NSO > 1]
+for(i in 1:dim(RF)[1]){
+  for(j in 1:dim(RF)[2]){
+    RF[i,j]=unique(owls.dat$RF[which(owls.dat$Year==j & owls.dat$Site==i)])
+    FOR[i,j]=unique(owls.dat$FOR[which(owls.dat$Year==j & owls.dat$Site==i)])
+  }}
+
+
+#Combine Y_BO and Y_NSO into a single matrix with four states:
+#State 1 = no owls detected
+#State 2 = only NSO detected
+#State 3 = only BO detected
+#State 4 = both BO and NSO detected
+Y_BO_temp<-Y_BO
+2->Y_BO_temp[Y_BO_temp==1]
+Y<-Y_BO_temp+Y_NSO+1
+
+#Matrix 'BO' is whether or not barred owls were detected at each site at least once in each year
+BO<-numeric()
+for(i in 1:22){BO<-cbind(BO,apply(Y_BO[,(i*8-7):(i*8)],1,sum))}
+1->BO[BO>1]
+#Matrix 'NSO' is whether or not spotted owls were detected at each site at least once in each year
+NSO<-numeric()
+for(i in 1:22){NSO<-cbind(NSO,apply(Y_NSO[,(i*8-7):(i*8)],1,sum))}
+1->NSO[NSO>1]
 
 #-----------------------------------------------------------------------------#
 # JAGS-Discrete
@@ -171,41 +197,79 @@ owls_JD.out <- jags.parallel(owls_JD.data, inits = NULL, owls_JD.par,
 library(R2jags)
 
 # Get data
-RF <- read.csv(".\\RF.csv", header = FALSE)
-FOR <- read.csv(".\\FOR.csv", header = FALSE)
-visited <- read.csv(".\\visited.csv", header = FALSE)
+owls.dat<-read.csv(".//owls.dat.csv")
 
 #-----------------------------------------------------------------------------#
 # format data for model fitting:
+nmaxVisit<-8
+nYear<-22
+pX<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear,7))
+Y_BO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
+Y_NSO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
 
-# JAGS-Marginalized - 4 states: 
-# 1 - Neither present, 2 - NSO present, 3 - BO present, 4 - both species present
-# requires matrix of visited per site/year/8 visits with 0 when not visited and
-# 1 when visited, one is rep (1,158), and y
+#pX : Matrix of detection covariates
+#First dimension: Sites
+#Second dimension: Number of total visits across years (maximum number of visits per year is 8)
+#Third dimension: Covariates
+#pX[,,1] = (1/0); whether site was visited 
+#pX[,,2] = (1/0); 1 if visited during the daytime
+#pX[,,3] = (1/0); 1 if visited during the nightime
+#Note if pX[,,2]==0 & pX[,,3]==0 then visited during crepuscular time of day
+#pX[,,4] = (1/0); 1 if sampled using Method 1
+#pX[,,5] = (1/0); 1 if sampled using Method 2
+#Note if pX[,,4]==0 & pX[,,5]==0 then sampled using Method 3
+#pX[,,6] = (1/0); Whether visit occurred during the last half of the study
+#pX[,,7] = (continuous, standardized); Covariate describing time spent sampling
 
-# detection covariates: day, night, method1, method3, second half, and survey
-# length effects on BO detection
-pX <- array(NA, dim = c(158, 176, 7))
-pX[,,1] <- matrix(unlist(visited), nrow = dim(visited)[1], ncol = dim(visited)[2])
-pX[,,2] <- as.matrix(read.csv(".\\day.csv", header = FALSE))
-pX[,,3] <- as.matrix(read.csv(".\\night.csv", header = FALSE))
-pX[,,4] <- as.matrix(read.csv(".\\mtd1.csv", header = FALSE))
-pX[,,5] <- as.matrix(read.csv(".\\mtd3.csv", header = FALSE))
-pX[,1:88,6] <- 0
-pX[,89:176,6] <- 1
-pX[,,7] <- as.matrix(read.csv(".\\tott.csv", header = FALSE))
 
-# If site is not visited, change all covariates to zero:
-for(i in 1:158){
-  for(j in 1:176){
-    if(visited[i,j] == 0){pX[i,j,] <- 0}
-  }
-}
+for(i in 1:length(owls.dat[,1])){
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],1]<-owls.dat$Visited[i]
+  if(owls.dat$TOD[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],2]<-1}
+  if(owls.dat$TOD[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],3]<-1}
+  if(owls.dat$Method[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],4]<-1}
+  if(owls.dat$Method[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],5]<-1}
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],7]<-owls.dat$ttot[i]
+  Y_BO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$BO[i]
+  Y_NSO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$NSO[i]}
 
-owls <- as.matrix(read.csv(".\\owls.csv", header = FALSE))
-Y_BO <- ifelse(owls > 1, 1, 0)
-Y_NSO <- ifelse(owls == 1 | owls == 3,1,0)
-Y <- owls + 1
+#Dummy variable for last half of the study:
+pX[,89:176,6]<-1
+
+#If site is not visited, change all covariates to zero:
+for(i in 1:158){for(j in 1:176){ if(pX[i,j,1]==0){pX[i,j,]<-0}}}  
+
+#Extract riparian forest (RF) and forest (FOR) covariates from owl.dat:
+RF<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+FOR<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+
+for(i in 1:dim(RF)[1]){
+  for(j in 1:dim(RF)[2]){
+    RF[i,j]=unique(owls.dat$RF[which(owls.dat$Year==j & owls.dat$Site==i)])
+    FOR[i,j]=unique(owls.dat$FOR[which(owls.dat$Year==j & owls.dat$Site==i)])
+  }}
+
+
+#Combine Y_BO and Y_NSO into a single matrix with four states:
+#State 1 = no owls detected
+#State 2 = only NSO detected
+#State 3 = only BO detected
+#State 4 = both BO and NSO detected
+Y_BO_temp<-Y_BO
+2->Y_BO_temp[Y_BO_temp==1]
+Y<-Y_BO_temp+Y_NSO+1
+
+#Matrix 'BO' is whether or not barred owls were detected at each site at least once in each year
+BO<-numeric()
+for(i in 1:22){BO<-cbind(BO,apply(Y_BO[,(i*8-7):(i*8)],1,sum))}
+1->BO[BO>1]
+#Matrix 'NSO' is whether or not spotted owls were detected at each site at least once in each year
+NSO<-numeric()
+for(i in 1:22){NSO<-cbind(NSO,apply(Y_NSO[,(i*8-7):(i*8)],1,sum))}
+1->NSO[NSO>1]
 
 #-----------------------------------------------------------------------------#
 sink("JAGS_Marginalized_owls.txt")
@@ -375,48 +439,86 @@ library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores()) # to run Stan in parallel
 
-# Get data
-RF <- read.csv(".\\RF.csv", header = FALSE)
-FOR <- read.csv(".\\FOR.csv", header = FALSE)
-visited <- read.csv(".\\visited.csv", header = FALSE)
+#Get data:
+owls.dat<-read.csv(".//owls.dat.csv")
+
 
 #-----------------------------------------------------------------------------#
 # format data for model fitting:
+nmaxVisit<-8
+nYear<-22
+pX<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear,7))
+Y_BO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
+Y_NSO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
 
-# Stan-M - 4 states:
-# 1 - Neither present, 2 - NSO present, 3 - BO present, 4 - both species present
-# requires list of visited sites & notvisited sites, matrix of visits per
-# site/year with 0 visit for unvisited sites, and y,
+#pX : Matrix of detection covariates
+#First dimension: Sites
+#Second dimension: Number of total visits across years (maximum number of visits per year is 8)
+#Third dimension: Covariates
+#pX[,,1] = (1/0); whether site was visited 
+#pX[,,2] = (1/0); 1 if visited during the daytime
+#pX[,,3] = (1/0); 1 if visited during the nightime
+#Note if pX[,,2]==0 & pX[,,3]==0 then visited during crepuscular time of day
+#pX[,,4] = (1/0); 1 if sampled using Method 1
+#pX[,,5] = (1/0); 1 if sampled using Method 2
+#Note if pX[,,4]==0 & pX[,,5]==0 then sampled using Method 3
+#pX[,,6] = (1/0); Whether visit occurred during the last half of the study
+#pX[,,7] = (continuous, standardized); Covariate describing time spent sampling
 
-# detection covariates: day, night, method1, method3, second half, and survey
-# length effects on BO detection
-pX <- array(NA, dim = c(158,176,7))
-pX[,,1] <- matrix(unlist(visited), nrow = dim(visited)[1], ncol = dim(visited)[2])
-pX[,,2] <- as.matrix(read.csv(".\\day.csv", header = FALSE))
-pX[,,3] <- as.matrix(read.csv(".\\night.csv", header = FALSE))
-pX[,,4] <- as.matrix(read.csv(".\\mtd1.csv", header = FALSE))
-pX[,,5] <- as.matrix(read.csv(".\\mtd3.csv", header = FALSE))
-pX[,1:88,6] <- 0
-pX[,89:176,6] <- 1
-pX[,,7] <- as.matrix(read.csv(".\\tott.csv", header = FALSE))
 
-# If site is not visited, change all covariates to zero:
-for(i in 1:158){
-  for(j in 1:176){
-    if(visited[i,j]==0){pX[i,j,] <- 0}
-  }
-}
+for(i in 1:length(owls.dat[,1])){
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],1]<-owls.dat$Visited[i]
+  if(owls.dat$TOD[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],2]<-1}
+  if(owls.dat$TOD[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],3]<-1}
+  if(owls.dat$Method[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],4]<-1}
+  if(owls.dat$Method[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],5]<-1}
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],7]<-owls.dat$ttot[i]
+  Y_BO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$BO[i]
+  Y_NSO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$NSO[i]}
 
-owls <- as.matrix(read.csv(".\\owls.csv", header = FALSE))
-Y_BO <- ifelse(owls > 1, 1, 0)
-Y_NSO <- ifelse(owls == 1 | owls == 3,1,0)
-Y <- owls + 1
+#Dummy variable for last half of the study:
+pX[,89:176,6]<-1
 
-n_occ <- apply(visited[,1:8], 1, sum)
-start <- 1:22 * 8 - 7
-for(i in 2:length(start)){
-  n_occ <- cbind(n_occ, apply(visited[,start[i]:(start[i]+7)], 1, sum))
-}
+#If site is not visited, change all covariates to zero:
+for(i in 1:158){for(j in 1:176){ if(pX[i,j,1]==0){pX[i,j,]<-0}}}  
+
+#Extract riparian forest (RF) and forest (FOR) covariates from owl.dat:
+RF<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+FOR<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+
+for(i in 1:dim(RF)[1]){
+  for(j in 1:dim(RF)[2]){
+    RF[i,j]=unique(owls.dat$RF[which(owls.dat$Year==j & owls.dat$Site==i)])
+    FOR[i,j]=unique(owls.dat$FOR[which(owls.dat$Year==j & owls.dat$Site==i)])
+  }}
+
+
+#Combine Y_BO and Y_NSO into a single matrix with four states:
+#State 1 = no owls detected
+#State 2 = only NSO detected
+#State 3 = only BO detected
+#State 4 = both BO and NSO detected
+Y_BO_temp<-Y_BO
+2->Y_BO_temp[Y_BO_temp==1]
+Y<-Y_BO_temp+Y_NSO+1
+
+#Matrix 'BO' is whether or not barred owls were detected at each site at least once in each year
+BO<-numeric()
+for(i in 1:22){BO<-cbind(BO,apply(Y_BO[,(i*8-7):(i*8)],1,sum))}
+1->BO[BO>1]
+#Matrix 'NSO' is whether or not spotted owls were detected at each site at least once in each year
+NSO<-numeric()
+for(i in 1:22){NSO<-cbind(NSO,apply(Y_NSO[,(i*8-7):(i*8)],1,sum))}
+1->NSO[NSO>1]
+
+#For Stan code:
+n_occ<-apply(pX[,1:8,1],1,sum)
+start<-1:22*8-7
+for(i in 2:length(start)){n_occ<-cbind(n_occ,apply(pX[,start[i]:(start[i]+7),1],1,sum))}
 
 #-----------------------------------------------------------------------------#
 # Note: '//' is for comments in Stan
@@ -606,54 +708,92 @@ library(rstan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores()) # to run Stan in parallel
 
-# Get data
-RF <- read.csv(".\\RF.csv", header = FALSE)
-FOR <- read.csv(".\\FOR.csv", header = FALSE)
-visited <- read.csv(".\\visited.csv", header = FALSE)
+#Get data:
+owls.dat<-read.csv(".//owls.dat.csv")
+
 
 #-----------------------------------------------------------------------------#
 # format data for model fitting:
+nmaxVisit<-8
+nYear<-22
+pX<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear,7))
+Y_BO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
+Y_NSO<-array(0,dim=c(max(owls.dat$Site),nmaxVisit*nYear))
 
-# Stan-MRE - 4 states: 
-# 1 - Neither present, 2 - NSO present, 3 - BO present, 4 - both species present
-# requires list of visited sites & notvisited sites, matrix of visits per
-# site/year with 0 visit for unvisited sites, and y
+#pX : Matrix of detection covariates
+#First dimension: Sites
+#Second dimension: Number of total visits across years (maximum number of visits per year is 8)
+#Third dimension: Covariates
+#pX[,,1] = (1/0); whether site was visited 
+#pX[,,2] = (1/0); 1 if visited during the daytime
+#pX[,,3] = (1/0); 1 if visited during the nightime
+#Note if pX[,,2]==0 & pX[,,3]==0 then visited during crepuscular time of day
+#pX[,,4] = (1/0); 1 if sampled using Method 1
+#pX[,,5] = (1/0); 1 if sampled using Method 2
+#Note if pX[,,4]==0 & pX[,,5]==0 then sampled using Method 3
+#pX[,,6] = (1/0); Whether visit occurred during the last half of the study
+#pX[,,7] = (continuous, standardized); Covariate describing time spent sampling
 
-# detection covariates: day, night, method1, method3, second half, and survey
-# length effects on BO detection
-pX <- array(NA, dim = c(158, 176, 7))
-pX[,,1] <- matrix(unlist(visited), nrow = dim(visited)[1], ncol = dim(visited)[2])
-pX[,,2] <- as.matrix(read.csv(".\\day.csv", header = FALSE))
-pX[,,3] <- as.matrix(read.csv(".\\night.csv", header = FALSE))
-pX[,,4] <- as.matrix(read.csv(".\\mtd1.csv", header = FALSE))
-pX[,,5] <- as.matrix(read.csv(".\\mtd3.csv", header = FALSE))
-pX[,1:88,6] <- 0
-pX[,89:176,6] <- 1
-pX[,,7] <- as.matrix(read.csv(".\\tott.csv", header = FALSE))
 
-# If site is not visited, change all covariates to zero:
-for(i in 1:158){
-  for(j in 1:176){
-    if(visited[i,j] == 0){pX[i,j,] <- 0}
-  }
-}
+for(i in 1:length(owls.dat[,1])){
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],1]<-owls.dat$Visited[i]
+  if(owls.dat$TOD[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],2]<-1}
+  if(owls.dat$TOD[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],3]<-1}
+  if(owls.dat$Method[i]==1){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],4]<-1}
+  if(owls.dat$Method[i]==2){
+    pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],5]<-1}
+  pX[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i],7]<-owls.dat$ttot[i]
+  Y_BO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$BO[i]
+  Y_NSO[owls.dat$Site[i],nmaxVisit*(owls.dat$Year[i]-1)+owls.dat$Visit_num[i]]<-owls.dat$NSO[i]}
 
-owls <- as.matrix(read.csv(".\\owls.csv", header = FALSE))
-Y_BO <- ifelse(owls > 1, 1, 0)
-Y_NSO <-ifelse(owls == 1 | owls == 3, 1, 0)
-Y <- owls + 1
+#Dummy variable for last half of the study:
+pX[,89:176,6]<-1
 
-n_occ <- apply(visited[,1:8], 1, sum)
-start <- 1:22 * 8 - 7
-for(i in 2:length(start)){
-  n_occ <- cbind(n_occ, apply(visited[,start[i]:(start[i] + 7)], 1, sum))
-}
+#If site is not visited, change all covariates to zero:
+for(i in 1:158){for(j in 1:176){ if(pX[i,j,1]==0){pX[i,j,]<-0}}}  
 
-# Mean values required for multi-level R^2 calculation:
-mean_FOR_site <- apply(FOR, 1, mean)
-mean_FOR_time <- apply(FOR, 2, mean)
-mean_RF_site <- apply(RF, 1, mean)
-mean_RF_time <- apply(RF, 2, mean)
+#Extract riparian forest (RF) and forest (FOR) covariates from owl.dat:
+RF<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+FOR<-matrix(NA, nrow=dim(pX)[1], ncol=nYear-1)
+
+for(i in 1:dim(RF)[1]){
+  for(j in 1:dim(RF)[2]){
+    RF[i,j]=unique(owls.dat$RF[which(owls.dat$Year==j & owls.dat$Site==i)])
+    FOR[i,j]=unique(owls.dat$FOR[which(owls.dat$Year==j & owls.dat$Site==i)])
+  }}
+
+
+#Combine Y_BO and Y_NSO into a single matrix with four states:
+#State 1 = no owls detected
+#State 2 = only NSO detected
+#State 3 = only BO detected
+#State 4 = both BO and NSO detected
+Y_BO_temp<-Y_BO
+2->Y_BO_temp[Y_BO_temp==1]
+Y<-Y_BO_temp+Y_NSO+1
+
+#Matrix 'BO' is whether or not barred owls were detected at each site at least once in each year
+BO<-numeric()
+for(i in 1:22){BO<-cbind(BO,apply(Y_BO[,(i*8-7):(i*8)],1,sum))}
+1->BO[BO>1]
+#Matrix 'NSO' is whether or not spotted owls were detected at each site at least once in each year
+NSO<-numeric()
+for(i in 1:22){NSO<-cbind(NSO,apply(Y_NSO[,(i*8-7):(i*8)],1,sum))}
+1->NSO[NSO>1]
+
+#For Stan code:
+n_occ<-apply(pX[,1:8,1],1,sum)
+start<-1:22*8-7
+for(i in 2:length(start)){n_occ<-cbind(n_occ,apply(pX[,start[i]:(start[i]+7),1],1,sum))}
+
+#Data for calculating multi-level R^2:
+mean_FOR_site<-apply(FOR,1,mean)
+mean_FOR_time<-apply(FOR,2,mean)
+mean_RF_site<-apply(RF,1,mean)
+mean_RF_time<-apply(RF,2,mean)
 
 #-----------------------------------------------------------------------------#
 # Note: '//' is for comments in Stan
