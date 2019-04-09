@@ -37,7 +37,7 @@ for(i in 1:length(nocc.dat[,1])){
 	BO[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-nocc.dat$BO[i]
    if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==1){
 	day[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-1}
-   if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==2){
+   if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==3){
 	night[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-1}}
 
 day[which(is.na(BO))]<-NA
@@ -149,7 +149,7 @@ for(i in 1:length(nocc.dat[,1])){
 	BO[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-nocc.dat$BO[i]
    if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==1){
 	day[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-1}
-   if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==2){
+   if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==3){
 	night[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-1}}
 
 day[which(is.na(BO))]<-NA
@@ -181,21 +181,22 @@ for (i in 1:nSites){
 
 
 
-nD0<-matrix(0,nrow=nSites,ncol=nYears)
-nD1<-matrix(0,nrow=nSites,ncol=nYears)
-nC0<-matrix(0,nrow=nSites,ncol=nYears)
-nC1<-matrix(0,nrow=nSites,ncol=nYears)
-nN0<-matrix(0,nrow=nSites,ncol=nYears)
-nN1<-matrix(0,nrow=nSites,ncol=nYears)
+
+nD0<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was not detected during day samples
+nD1<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was detected during day samples
+nC0<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was not detected during crepuscular samples
+nC1<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was detected during crepuscular samples
+nN0<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was not detected during night samples
+nN1<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was detected during night samples
 for (i in 1:nSites){
-	for (t in 1:nYears){
-		nD0[i,t]<-length(which(site==i&year==t&tod==1&Y==0))
-		nD1[i,t]<-length(which(site==i&year==t&tod==1&Y==1))
-		nC0[i,t]<-length(which(site==i&year==t&tod==2&Y==0))
-		nC1[i,t]<-length(which(site==i&year==t&tod==2&Y==1))
-		nN0[i,t]<-length(which(site==i&year==t&tod==3&Y==0))
-		nN1[i,t]<-length(which(site==i&year==t&tod==3&Y==1))
-		}}
+  for (t in 1:nYears){
+    nD0[i,t]<-length(which(site==i&year==t&tod==1&Y==0))
+    nD1[i,t]<-length(which(site==i&year==t&tod==1&Y==1))
+    nC0[i,t]<-length(which(site==i&year==t&tod==2&Y==0))
+    nC1[i,t]<-length(which(site==i&year==t&tod==2&Y==1))
+    nN0[i,t]<-length(which(site==i&year==t&tod==3&Y==0))
+    nN1[i,t]<-length(which(site==i&year==t&tod==3&Y==1))
+  }}
 
 #-----------------------------------------------------------------------------#
 
@@ -300,5 +301,212 @@ SM_data<-list(nYears=nYears,nSites=nSites,RF=RF,nD0=nD0,nD1=nD1,nC0=nC0,nC1=nC1,
 SM_params <- c("a0", "a1", "b0", "b1", "p", "lambda","N_mean")
 
 SM_nocc<-stan("Nocc_SM.stan",data=SM_data,pars=SM_params,iter=10,chains=1) 
+
+###############################################################################
+#                                                                     Spring 19
+#  N-Occupancy Model
+#  Maximum likelihood version 
+#
+#  Notes: Includes two different functions
+#         function 'Nocc_ML' estimates occupancy by first estimating underlying site-specific abundance (comparable to Stan and JAGS examples above)
+#         function 'occ_ML' estimates occupancy without estimating abundance
+#   
+###############################################################################
+
+
+#-----------------------------------------------------------------------------#
+# import, format data for model fitting
+nocc.dat<-read.csv(".//nocc.dat.csv")
+
+# extract all BO data
+
+nYears<-26
+nVisits<-8
+nSites<-158
+Ninf<-10
+Ns<-c(0:Ninf)
+
+BO<-array(0,dim=c(max(nocc.dat$Site),nVisits*nYears))
+day<-array(0,dim=c(max(nocc.dat$Site),nVisits*nYears))
+night<-array(0,dim=c(max(nocc.dat$Site),nVisits*nYears))
+RF<-array(0,dim=c(max(nocc.dat$Site),nYears-1))
+
+
+#BO : Matrix of barred owl detections:
+# 1 = barred owl detected
+# 0 = barred owl not detected
+# NA = site not visited
+
+for(i in 1:length(nocc.dat[,1])){
+  BO[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-nocc.dat$BO[i]
+  if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==1){
+    day[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-1}
+  if(is.na(nocc.dat$TOD[i])==FALSE & nocc.dat$TOD[i]==3){
+    night[nocc.dat$Site[i],nVisits*(nocc.dat$Year[i]-1)+nocc.dat$Visit_num[i]]<-1}}
+
+day[which(is.na(BO))]<-NA
+night[which(is.na(BO))]<-NA
+TOD<-2-day+night
+
+#Get riparian forest (RF) covariate:
+RF<-matrix(NA, nrow=dim(BO)[1], ncol=nYears-1)
+
+for(i in 1:dim(RF)[1]){
+  for(j in 1:dim(RF)[2]){
+    RF[i,j]=unique(nocc.dat$RF[which(nocc.dat$Year==j & nocc.dat$Site==i)])
+  }}
+
+
+
+Y<-numeric()
+tod<-numeric()
+site<-numeric()
+year<-numeric()
+for (i in 1:nSites){
+  temp<-which(is.na(BO[i,])==FALSE)
+  site<-c(site,rep(i,length(temp)))
+  Y<-c(Y,as.numeric(BO[i,temp]))
+  tod<-c(tod,as.numeric(TOD[i,temp]))
+  year<-c(year,floor((temp+7)/nVisits))
+}
+
+
+
+
+nD0<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was not detected during day samples
+nD1<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was detected during day samples
+nC0<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was not detected during crepuscular samples
+nC1<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was detected during crepuscular samples
+nN0<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was not detected during night samples
+nN1<-matrix(0,nrow=nSites,ncol=nYears) #matrix describing number of times BO was detected during night samples
+for (i in 1:nSites){
+  for (t in 1:nYears){
+    nD0[i,t]<-length(which(site==i&year==t&tod==1&Y==0))
+    nD1[i,t]<-length(which(site==i&year==t&tod==1&Y==1))
+    nC0[i,t]<-length(which(site==i&year==t&tod==2&Y==0))
+    nC1[i,t]<-length(which(site==i&year==t&tod==2&Y==1))
+    nN0[i,t]<-length(which(site==i&year==t&tod==3&Y==0))
+    nN1[i,t]<-length(which(site==i&year==t&tod==3&Y==1))
+  }}
+#-----------------------------------------------------------------------------#
+
+#Maximum likelihood function (N-occupancy):
+
+nocc_ML<-function(par){
+  lambda<-par[1]
+  a0<-par[2]
+  a1<-par[3]
+  b0<-par[4]
+  b1<-par[5]
+  p<-numeric()
+  p[1]<-par[6]
+  p[2]<-par[7]
+  p[3]<-par[8]
+  #
+  pN<-dpois(0:Ninf,lambda)
+  Ns<-0:Ninf
+  po<-array(0,dim=c(3,2,(Ninf+1)))
+  po[1,1,]<-(1-p[1])^Ns
+  po[1,2,]<-1-po[1,1,]
+  po[2,1,]<-(1-p[2])^Ns
+  po[2,2,]<-1-po[2,1,]
+  po[3,1,]<-(1-p[3])^Ns
+  po[3,2,]<-1-po[3,1,]
+  cp<-array(0,dim=c(nSites,nYears,(Ninf+1)))
+  pz<-matrix(NA,nrow=nSites,ncol=(Ninf+1))
+  N_mn<-numeric()
+  gtr<-matrix(0,nrow=Ninf+1,ncol=Ninf+1)
+  str<-matrix(0,nrow=Ninf+1,ncol=Ninf+1)
+  llik<-numeric()
+  #
+  for (t in 1:nYears){
+    for (j in 1:(Ninf+1)){
+      cp[,t,j]<-((po[1,1,j])^nD0[,t])*((po[1,2,j])^nD1[,t])*((po[2,1,j])^nC0[,t])*
+        ((po[2,2,j])^nC1[,t])*((po[3,1,j])^nN0[,t])*((po[3,2,j])^nN1[,t])
+    }}
+  for (i in 1:nSites){
+    pz[i,]=pN*cp[i,1,]
+    N_mn[i]<-Ns%*%pz[i,]/sum(pz[i,])
+  }
+  for(t in 1:(nYears-1)) {
+    N_mean <- mean(N_mn)-1
+    gamma <- exp(a0 + a1*N_mean)
+    for (j in 1:(Ninf+1)){
+      gtr[j,] <- dpois((Ns-j+1),gamma)/ppois(Ninf-j+1,gamma)
+    }
+    for(i in 1:nSites) {
+      omega <- plogis(b0 + b1*RF[i,t])
+      for (j in 1:(Ninf+1)){
+        str[j,] = pz[i,j]*dbinom(Ns,(j-1),omega)
+      }
+      tr<-colSums(str)%*%gtr
+      pz[i,]<-tr*cp[i,t,]
+      N_mn[i]<-(Ns%*%pz[i,])/sum(pz[i,])
+    }}
+  for (i in 1:nSites){
+    llik[i]<-log(sum(pz[i,]))
+  }		
+  -1*sum(llik)
+}
+#-----------------------------------------------------------------------------#
+
+#Maximum likelihood function (Dynamic occupancy):
+
+occ_ML<-function(par){
+  psi<-par[1]
+  a0<-par[2]
+  a1<-par[3]
+  b0<-par[4]
+  b1<-par[5]
+  p<-numeric()
+  p[1]<-par[6]
+  p[2]<-par[7]
+  p[3]<-par[8]
+  #
+  po<-array(0,dim=c(3,2,2))
+  po[1,1,]<-(1-p[1])^c(0,1)
+  po[1,2,]<-1-po[1,1,]
+  po[2,1,]<-(1-p[2])^c(0,1)
+  po[2,2,]<-1-po[2,1,]
+  po[3,1,]<-(1-p[3])^c(0,1)
+  po[3,2,]<-1-po[3,1,]
+  cp<-array(0,dim=c(nSites,nYears,2))
+  pz<-matrix(NA,nrow=nSites,ncol=2)
+  psi_mn<-numeric()
+  tr<-matrix(0,nrow=2,ncol=2)
+  llik<-numeric()
+  #
+  for (t in 1:nYears){
+    for (j in 1:2){
+      cp[,t,j]<-((po[1,1,j])^nD0[,t])*((po[1,2,j])^nD1[,t])*((po[2,1,j])^nC0[,t])*
+        ((po[2,2,j])^nC1[,t])*((po[3,1,j])^nN0[,t])*((po[3,2,j])^nN1[,t])
+    }}
+  for (i in 1:nSites){
+    pz[i,]=c(1-psi,psi)*cp[i,1,]
+    psi_mn[i]<-pz[i,2]/sum(pz[i,])
+  }
+  for(t in 1:(nYears-1)) {
+    psi_mean <- mean(psi_mn)
+    gam<-plogis(a0+a1*psi_mean)
+    tr[1,]<-c(1-gam,gam)
+    for(i in 1:nSites) {
+      eps <- plogis(b0 + b1*RF[i,t])
+      tr[2,]<-c(eps,1-eps)
+      pz[i,]<-(pz[i,]%*%tr)*cp[i,t,]
+      psi_mn[i]<-pz[i,2]/sum(pz[i,])
+    }}
+  for (i in 1:nSites){
+    llik[i]<-log(sum(pz[i,]))
+  }		
+  -1*sum(llik)
+}
+#-----------------------------------------------------------------------------#
+
+#Run models:
+
+m_Nocc_ML<-optim(rep(0.5,8),nocc_ML,method="BFGS",hessian=TRUE)
+
+m_occ_ML<-optim(rep(0.5,8),occ_ML,method="BFGS",hessian=TRUE)
+
 
 
