@@ -4,7 +4,6 @@
 ### We illistrate the advantages of marginalization using six examples:
 
 
-
 - Application 1: Cormack Jolly Seber (CJS) models fit to Rainbow Trout data. 
 - Application 2: Dynamic Two Species Occupancy Models - Owls. (Application 5)
 - Application 3: Combination Occupancy - N-Mixture Models - Owls. (Application 6)
