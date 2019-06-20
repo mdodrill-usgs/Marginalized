@@ -1,0 +1,59 @@
+model {
+	for (i in 1:(nspp)) {
+		a1[i] ~ dunif(0,1)
+		z0[i,1]<-a1[i]
+		z0[i,2]<-1-a1[i]
+		alpha1[i] ~ dnorm(alpha1_mean,tau_alpha1)
+		for (h in 1:7){alpha2[i,h]~dnorm(0,tau_alpha2)}    
+		alpha0[i] ~ dnorm(beta, tau_u)
+		mu_eta[i] <- alpha + (rho*sigma_v/sigma_u)*(alpha0[i] - beta)
+		beta0[i] ~ dnorm(mu_eta[i], tau_eta)
+		logit(p[i]) <- beta0[i] #detection
+		po[i,1,1,2]=1;
+		po[i,2,1,2]=1;
+		for (j in 1:nsess){
+			po[i,1,(j+1),1]<-0
+			po[i,2,(j+1),1]<-(p[i]^j)*(1-p[i])^(nsess-j)
+			}
+		po[i,1,1,1]<-1
+		po[i,2,1,1]<-(1-p[i])^(nsess)
+		for (k in 1:nhab) {
+			logit(tr[i,k,1,2])<-alpha0[i]+alpha2[i,k]
+			logit(tr[i,k,2,2])<-alpha0[i]+alpha1[i]+alpha2[i,k]
+			tr[i,k,1,1]<-1-tr[i,k,1,2]
+			tr[i,k,2,1]<-1-tr[i,k,2,2]
+			}}
+	for (i in 1:NuDH){
+		pz[i,1,1]=(z0[spp[i],1]*tr[spp[i],hab2[i],1,1]+z0[spp[i],2]*tr[spp[i],hab2[i],2,1])*po[spp[i],1,sY2[i,1],visit2[i]];
+		pz[i,1,2]=(z0[spp[i],1]*tr[spp[i],hab2[i],1,2]+z0[spp[i],2]*tr[spp[i],hab2[i],2,2])*po[spp[i],2,sY2[i,1],visit2[i]];
+		Z[i,1]=pz[i,1,2]/(pz[i,1,1]+pz[i,1,2]);
+		for (t in 1:(nyears-1)){
+			pz[i,(t+1),1]=(pz[i,t,1]*tr[spp[i],hab2[i],1,1]+pz[i,t,2]*tr[spp[i],hab2[i],2,1])*po[spp[i],1,sY2[i,(t+1)],1];
+			pz[i,(t+1),2]=(pz[i,t,1]*tr[spp[i],hab2[i],1,2]+pz[i,t,2]*tr[spp[i],hab2[i],2,2])*po[spp[i],2,sY2[i,(t+1)],1];
+			Z[i,(t+1)]=pz[i,(t+1),2]/(pz[i,(t+1),1]+pz[i,(t+1),2]);
+			}
+		lik[i]<-sum(pz[i,nyears,])
+		fr[i]~dbin(lik[i],FR[i])
+		}
+	for (k in 1:nsites){  
+		for (t in 1:nyears){
+			for (i in 1:nspp){Z2[i,k,t]~dbern(Z[lookup[i,k],t])}
+			SR[k,t] <- sum(Z2[1:nspp,k,t])
+			}}
+	psi_mean ~ dunif(0,1)
+	beta <- log(psi_mean) - log(1-psi_mean)
+	p_mean ~ dunif(0,1)
+	alpha <- log(p_mean) - log(1-p_mean)
+	alpha1_mean ~ dunif(0,1)
+	alpha1_mu <- log(alpha1_mean) - log(1-alpha1_mean)
+	sigma_alpha1 ~ dunif(0,5)
+	sigma_alpha2 ~ dunif(0,5)
+	sigma_u ~ dunif(0,5)
+	sigma_v ~ dunif(0,5)
+	tau_alpha1 <- pow(sigma_alpha1,-2)
+	tau_alpha2 <- pow(sigma_alpha2,-2)
+	tau_u <- pow(sigma_u,-2)
+	tau_v <- pow(sigma_v,-2)
+	rho ~ dunif(-1,1)
+	tau_eta <- tau_v/(1-pow(rho,2)) 
+	}
