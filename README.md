@@ -4,13 +4,12 @@
 ### We illistrate the advantages of marginalization using six examples:
 
 
-- Application 1: Cormack Jolly Seber (CJS) models fit to Rainbow Trout data. 
-- Application 2: Dynamic Two Species Occupancy Models - Owls. (Application 5)
-- Application 3: Combination Occupancy - N-Mixture Models - Owls. (Application 6)
-- Application 4: Multi-State capture Recapture models fit to Humpback Chub data. (Application 2)
-- Application 5: Dynamic Community Occupancy Models - Sky Islands.(Application 3)
-- Application 6: Integrated Population Models (IPM) fit to Brown Trout data. (Application 4)
-
+- Application 1: Cormack Jolly Seber Models - Rainbow Trout 
+- Application 2: Multi-State Capture Recapture Models - Humpback Chub
+- Application 3: Dynamic Community Occupancy Models - Sky Islands
+- Application 4: Integrated Population Models - Brown Trout
+- Application 5: Dynamic Two Species Occupancy Models - Owls
+- Application 3: N-Occupancy Models - Owls
 
 ## Disclaimer
 
